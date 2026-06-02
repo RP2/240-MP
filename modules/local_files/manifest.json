@@ -1,0 +1,36 @@
+{
+  "id": "com.240mp.local_files",
+  "name": "Local Files",
+  "icon": "assets/images/logo.svg",
+  "version": "1.0",
+  "entry_point_qml": "views/Root.qml",
+
+  "settings": [
+    {
+      "key": "enabled",
+      "label": "ENABLED",
+      "type": "toggle",
+      "default": "ON"
+    },
+    {
+      "key": "media_directory",
+      "label": "Media Directory",
+      "type": "directory_browser",
+      "default": ""
+    },
+    {
+      "key": "loop_playback",
+      "label": "Loop Playback",
+      "type": "toggle",
+      "default": "OFF"
+    },
+    {
+      "key": "resume_playback",
+      "label": "Resume Playback",
+      "type": "list_single",
+      "options_source": "dynamic",
+      "options_slot": "get_resume_playback_options",
+      "default": "ask"
+    }
+  ]
+}

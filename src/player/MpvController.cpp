@@ -1,4 +1,5 @@
 #include "MpvController.h"
+#include "../AppCore.h"
 #include <QDir>
 #include <QFile>
 #include <QProcessEnvironment>
@@ -41,13 +42,21 @@ static QString writeFontconfigOverride(const QString &fontsDir) {
 }
 #endif
 
-MpvController::MpvController(const QString &appRoot, QObject *parent)
+MpvController::MpvController(const QString &appRoot, AppCore *appCore, QObject *parent)
     : QObject(parent)
+    , m_appCore(appCore)
     , m_appRoot(appRoot)
     , m_socketPath(QDir::tempPath() + "/240mp-mpv.sock")
     , m_inputConfPath(QDir::tempPath() + "/240mp-input.conf")
     , m_logFilePath(QDir::tempPath() + "/240mp-mpv.log")
 {
+    m_videoProfile = detectVideoProfile();
+    qInfo("[MpvController] video profile: %s",
+          m_videoProfile == VideoProfile::Pi4       ? "Pi 4 — drm + v4l2m2m-copy"
+        : m_videoProfile == VideoProfile::Pi3       ? "Pi 3 — gpu/drm + v4l2m2m (zero-copy)"
+        : m_videoProfile == VideoProfile::PiFullKms ? "Pi 5 (Full KMS) — drm + auto-safe"
+                                                    : "generic");
+
     QFile f(m_inputConfPath);
     if (f.open(QFile::WriteOnly | QFile::Text)) {
         f.write("ESC quit\n");
@@ -225,8 +234,9 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
             // real VT — do NOT overwrite it with the current free VT. The old
             // mpv was terminated above; just launch the replacement directly.
             args << QString("--input-conf=%1").arg(m_inputConfPath)
-                 << "--video-sync=audio"
-                 << "--vo=drm" << "--hwdec=auto-safe" << "--no-input-terminal";
+                 << "--video-sync=audio";
+            appendVideoArgs(args);
+            args << "--no-input-terminal";
             m_process->start(bin, args);
             m_connectTimer->start();
             return;
@@ -263,8 +273,9 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
 #endif
 
         args << QString("--input-conf=%1").arg(m_inputConfPath)
-             << "--video-sync=audio"
-             << "--vo=drm" << "--hwdec=auto-safe" << "--no-input-terminal";
+             << "--video-sync=audio";
+        appendVideoArgs(args);
+        args << "--no-input-terminal";
         m_process->start(bin, args);
         m_connectTimer->start();
     } else {
@@ -285,6 +296,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         args << QString("--input-conf=%1").arg(m_inputConfPath)
              << "--video-sync=audio"
              << "--fullscreen" << "--no-native-fs";
+        appendVideoArgs(args);
 #ifdef Q_OS_MACOS
         // mpv runs as a separate process and can't see the app-bundle font via
         // FontLoader. This will load the bundled VCR OSD Mono directly into the OSD libass
@@ -451,6 +463,71 @@ bool MpvController::detectHeadlessMode() const {
 #else
     return false;
 #endif
+}
+
+MpvController::VideoProfile MpvController::detectVideoProfile() const {
+#ifdef Q_OS_LINUX
+    // The Raspberry Pi model string (e.g. "Raspberry Pi 4 Model B Rev 1.5") is
+    // exposed NUL-terminated at /proc/device-tree/model. Pi 3 and Pi 4 both boot
+    // Fake KMS but have different CPU budgets, so they get different decode paths;
+    // Pi 5 boots Full KMS and direct-renders with --vo=drm.
+    QFile f("/proc/device-tree/model");
+    if (f.open(QIODevice::ReadOnly)) {
+        const QString model =
+            QString::fromLatin1(f.readAll()).remove(QChar('\0')).trimmed();
+        if (model.startsWith("Raspberry Pi 5"))
+            return VideoProfile::PiFullKms;
+        if (model.startsWith("Raspberry Pi 4"))
+            return VideoProfile::Pi4;
+        if (model.startsWith("Raspberry Pi 3"))
+            return VideoProfile::Pi3;
+    }
+#endif
+    return VideoProfile::Generic;
+}
+
+void MpvController::appendVideoArgs(QStringList &args) const {
+    // App-level "mpv_video_args" override replaces the auto-detected vo/hwdec
+    // flags verbatim. Read here (not cached) so edits to config.json take effect
+    // on the next playback without a rebuild — handy for per-device HW tuning.
+    if (m_appCore) {
+        const QString override =
+            m_appCore->get_setting(QString(), "mpv_video_args").toString().trimmed();
+        if (!override.isEmpty()) {
+            args << override.split(' ', Qt::SkipEmptyParts);
+            return;
+        }
+    }
+
+    if (m_headlessMode) {
+        if (m_videoProfile == VideoProfile::Pi4) {
+            // Pi 4B: native --vo=drm draws on the primary plane with precise KMS
+            // page-flip timing (smooth cadence). v4l2m2m-copy keeps decode on the
+            // hardware block but copies frames back to RAM so they land on that
+            // primary plane instead of the drmprime *overlay* plane — the overlay
+            // path (vo=gpu zero-copy) decodes just as cheaply but its presentation
+            // jitters into visible 24p judder. The copy + zimg downscale costs more
+            // CPU (~50-70% across 4 cores) but the Pi4 has the headroom, and crop
+            // (--panscan) works because frames go through the normal scaler.
+            args << "--vo=drm" << "--hwdec=v4l2m2m-copy";
+        } else if (m_videoProfile == VideoProfile::Pi3) {
+            // Pi 3B/3B+: too weak for the copy + software-scale path above (it pegs
+            // all four cores and gets choppy). Zero-copy v4l2m2m hands decoded frames
+            // straight to a DRM overlay plane for the lowest possible CPU (~15%) with
+            // smooth playback. The one trade-off: the overlay plane can't zoom/crop,
+            // so mpv's --panscan (the OSC crop button) blanks the video on this path.
+            args << "--vo=gpu" << "--gpu-context=drm" << "--hwdec=v4l2m2m";
+        } else {
+            // Pi 5 (Full KMS) and the safe fallback for unknown headless Linux.
+            args << "--vo=drm" << "--hwdec=auto-safe";
+        }
+    } else {
+#ifdef Q_OS_MACOS
+        // Apple Silicon: enable VideoToolbox HW decode (mpv's default is none).
+        args << "--hwdec=videotoolbox";
+#endif
+        // Other desktop (X11/Wayland dev): leave mpv's defaults untouched.
+    }
 }
 
 int MpvController::getActiveVt() const {

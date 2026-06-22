@@ -5,6 +5,7 @@ FocusScope {
     id: seasonRoot
 
     property var navParams: ({})
+    property var navListState: navParams.navListState || ({})
 
     signal navigateTo(string path, var params, var listState)
     signal goBack()
@@ -20,8 +21,11 @@ FocusScope {
         function onSeasonsLoaded(loadedItems) {
             seasonRoot.isLoading = false
             seasonRoot.seasons = loadedItems
-            // [dev] console.log("[ItemSeason] onSeasonsLoaded: " + loadedItems.length + " seasons")
-            if (loadedItems.length > 0) seasonList.currentIndex = 0
+            if (loadedItems.length > 0) {
+                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
+                seasonList.currentIndex = Math.min(restore, loadedItems.length - 1)
+                seasonList.positionViewAtIndex(seasonList.currentIndex, ListView.Contain)
+            }
         }
 
         function onEpisodesLoaded(loadedItems) {

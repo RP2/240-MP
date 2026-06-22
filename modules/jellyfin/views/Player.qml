@@ -13,15 +13,24 @@ FocusScope {
 
     property string streamUrl:      navParams.streamUrl      || ""
     property string itemId:         navParams.itemId         || ""
+    property string seriesId:       navParams.seriesId       || ""
     property string mediaSourceId:  navParams.mediaSourceId  || itemId
     property string itemTitle:      navParams.title          || ""
     property int    viewOffset:     navParams.viewOffset     || 0
+    property int    parentIndex:    navParams.parentIndex    || 0
+    property int    index:          navParams.index          || 0
     property var    audioStreams:       navParams.audioStreams     || []
     property var    subtitleStreams:    navParams.subtitleStreams  || []
     property string selectedAudioId:    navParams.selectedAudioId    || ""
     property string selectedSubtitleId: navParams.selectedSubtitleId || ""
 
     property bool isTranscoding: streamUrl.indexOf("master.m3u8") >= 0
+
+    // Autoplay next episode
+    property bool   autoplayNext:       false
+    property bool   pendingNextEpisode: false
+    property string carryAudioLang:     ""
+    property string carrySubLang:       "__off__"
 
     // When true, skip the "Resume / Start from beginning" dialog and always resume
     property bool resumeSkip: navParams.resumeSkip || false
@@ -80,6 +89,9 @@ FocusScope {
             } else if (event.key === Qt.Key_Right) {
                 mpvController.sendKey("RIGHT")
                 event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                mpvController.sendKey("ENTER")
+                event.accepted = true
             }
         }
     }
@@ -100,6 +112,31 @@ FocusScope {
         for (var j = 0; j < subtitleStreams.length; j++) {
             if (String(subtitleStreams[j].id || "") === selSub) { subtitleIdx = j; break }
         }
+        captureCarryLanguages()
+    }
+
+    // Record the language of the current audio/subtitle selection so the next
+    // episode (which has different per-file stream IDs) can be matched by language.
+    function captureCarryLanguages() {
+        var a = audioStreams[audioIdx]
+        carryAudioLang = (a && a.language) ? a.language : ""
+        var s = subtitleStreams[subtitleIdx]
+        carrySubLang = (subtitleIdx === -1 || !s) ? "__off__" : (s.language || "")
+    }
+
+    // Select audioIdx/subtitleIdx on the current stream lists to match the carried
+    // languages. Falls back to the first audio track / subtitles-off when no match.
+    function applyCarryLanguages() {
+        audioIdx = 0
+        for (var i = 0; i < audioStreams.length; i++) {
+            if (carryAudioLang && audioStreams[i].language === carryAudioLang) { audioIdx = i; break }
+        }
+        subtitleIdx = -1
+        if (carrySubLang !== "__off__" && carrySubLang !== "") {
+            for (var j = 0; j < subtitleStreams.length; j++) {
+                if (subtitleStreams[j].language === carrySubLang) { subtitleIdx = j; break }
+            }
+        }
     }
 
     function reportStopped(finalPositionMs, finalDurationMs) {
@@ -112,6 +149,55 @@ FocusScope {
     function stopPlayback() {
         reportStopped(mpvController.position, mpvController.duration)
         mpvController.stop()
+    }
+
+    // Swap the player's context to the next episode in place (no navigation) and
+    // begin playing it from the beginning, carrying over the track languages.
+    function advanceToEpisode(detail) {
+        itemId         = detail.itemId         || ""
+        mediaSourceId  = detail.mediaSourceId  || detail.itemId || ""
+        itemTitle      = detail.title          || ""
+        audioStreams   = detail.audioStreams   || []
+        subtitleStreams= detail.subtitleStreams|| []
+        seriesId       = detail.seriesId       || ""
+        parentIndex    = detail.parentIndex    || 0
+        index          = detail.index          || 0
+
+        // Fresh-start state for the new episode
+        viewOffset           = 0
+        stoppedReported      = false
+        playbackStarted      = false
+        lastKnownPositionMs  = 0
+        lastKnownDurationMs  = 0
+        resumeSkip           = false
+
+        // Repoint the BACK target so exiting returns to THIS episode's detail
+        updateBackItem({
+            itemId: detail.itemId,
+            type: detail.type || "episode",
+            title: detail.title || "",
+            grandparentTitle: detail.grandparentTitle || "",
+            parentIndex: detail.parentIndex,
+            index: detail.index
+        })
+
+        // Match the carried languages onto this episode's stream lists
+        applyCarryLanguages()
+        selectedAudioId    = (audioStreams[audioIdx] && audioStreams[audioIdx].id) ? String(audioStreams[audioIdx].id) : ""
+        selectedSubtitleId = (subtitleIdx >= 0 && subtitleStreams[subtitleIdx] && subtitleStreams[subtitleIdx].id) ? String(subtitleStreams[subtitleIdx].id) : ""
+        captureCarryLanguages()
+
+        // Start a new playback session on the server so progress tracking
+        // and the Continue-Watching shelf work for the auto-advanced episode.
+        jellyfinBackend.report_playback_start(detail.itemId, detail.mediaSourceId || detail.itemId,
+                                               selectedAudioId, selectedSubtitleId)
+
+        // Request the new stream URL
+        pendingNextEpisode = true
+        var audioStreamIdx = selectedAudioId ? parseInt(selectedAudioId) : -1
+        var subStreamIdx   = selectedSubtitleId ? parseInt(selectedSubtitleId) : -1
+        jellyfinBackend.get_playback_url(detail.itemId, detail.mediaSourceId || detail.itemId,
+                                          audioStreamIdx, subStreamIdx)
     }
 
     // Starting mpv runs synchronously and, on the Pi, immediately switches VT
@@ -161,6 +247,27 @@ FocusScope {
     Connections {
         target: jellyfinBackend
         function onErrorOccurred(msg) { console.log("[Jellyfin Player] Backend error: " + msg) }
+
+        function onStreamUrlReady(url) {
+            if (pendingNextEpisode) {
+                // Stream URL for the auto-advanced next episode just arrived
+                pendingNextEpisode = false
+                playerRoot.streamUrl = url
+                doStartPlayback(0)
+                return
+            }
+        }
+
+        function onNextEpisodeReady(detail) {
+            if (!pendingNextEpisode) return
+            // Empty detail → no next episode in the season
+            if (!detail || !detail.itemId) {
+                pendingNextEpisode = false
+                goBack()
+                return
+            }
+            playerRoot.advanceToEpisode(detail)
+        }
     }
 
     Connections {
@@ -186,9 +293,11 @@ FocusScope {
 
         function onPlaybackFinishedNaturally(finalPositionMs, finalDurationMs) {
             // mpv reached the end of the file. Mark it stopped in Jellyfin,
-            // then return to the detail view.
+            // then auto-advance to the next episode if the feature is enabled.
             reportStopped(finalPositionMs, finalDurationMs)
-            goBack()
+            if (!autoplayNext) { goBack(); return }
+            pendingNextEpisode = true
+            jellyfinBackend.load_next_episode(itemId)
         }
     }
 
@@ -207,6 +316,10 @@ FocusScope {
         initStreamIndices()
         if (streamUrl === "") return
         resumeSetting = appCore.get_setting(moduleRoot.moduleId, "resume_playback") || "ask"
+        // Match ModuleSettings.qml's reading of a toggle: stored as a real bool
+        // once the user touches it, but accept the legacy "ON" string too.
+        var autoplayRaw = appCore.get_setting(moduleRoot.moduleId, "autoplay_next_episode")
+        autoplayNext = (autoplayRaw === true || autoplayRaw === "ON")
 
         if (resumeSkip) {
             // Continue Watching: always resume, no dialog

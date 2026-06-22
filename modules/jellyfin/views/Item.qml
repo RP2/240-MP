@@ -108,6 +108,7 @@ FocusScope {
             detailRoot.navigateTo("Player.qml", {
                 streamUrl: url,
                 itemId: d.itemId,
+                seriesId: d.seriesId || "",
                 mediaSourceId: d.mediaSourceId || d.itemId,
                 title: d.title,
                 viewOffset: d.viewOffset || 0,
@@ -115,7 +116,9 @@ FocusScope {
                 audioStreams: d.audioStreams || [],
                 subtitleStreams: d.subtitleStreams || [],
                 selectedAudioId: detailRoot.selectedAudioId(),
-                selectedSubtitleId: detailRoot.selectedSubtitleId()
+                selectedSubtitleId: detailRoot.selectedSubtitleId(),
+                parentIndex: d.parentIndex || 0,
+                index: d.index || 0
             }, { subtitleIdx: subtitleIdx, audioIdx: audioIdx })
         }
 

@@ -515,6 +515,7 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
 
     QVariantMap map;
     map["itemId"]          = item["Id"].toString();
+    map["seriesId"]        = item["SeriesId"].toString();
     map["title"]           = item["Name"].toString();
     map["type"]            = item["Type"].toString().toLower();
     map["overview"]        = item["Overview"].toString();
@@ -883,6 +884,85 @@ void JellyfinBackend::get_playback_url(const QString &itemId, const QString &med
         // [dev] qDebug("[JellyfinBackend] PlaybackInfo URL ready audio=%d sub=%d psId=%s",
         // [dev]        audioStreamIndex, subtitleStreamIndex, qPrintable(freshPlaySessionId.left(8)));
         emit streamUrlReady(fullUrl);
+    });
+}
+
+void JellyfinBackend::load_next_episode(const QString &currentItemId) {
+    if (!has_auth()) {
+        emit nextEpisodeReady(QVariantMap{});
+        return;
+    }
+
+    // Step 1: fetch current episode to get seriesId + episode position
+    QUrl detailUrl(m_serverUrl + "/Users/" + m_userId + "/Items/" + currentItemId);
+    QUrlQuery detailQ;
+    detailQ.addQueryItem("fields", "MediaSources");
+    detailUrl.setQuery(detailQ);
+
+    auto *detailReply = jellyfinGet(detailUrl);
+    connect(detailReply, &QNetworkReply::finished, this, [this, detailReply]() {
+        detailReply->deleteLater();
+        if (detailReply->error() != QNetworkReply::NoError) {
+            emit nextEpisodeReady(QVariantMap{});
+            return;
+        }
+        QJsonObject item = QJsonDocument::fromJson(detailReply->readAll()).object();
+        QString seriesId      = item["SeriesId"].toString();
+        int     currentIndex  = item["IndexNumber"].toInt();
+        int     currentSeason = item["ParentIndexNumber"].toInt();
+
+        if (seriesId.isEmpty() || item["Type"].toString() != QLatin1String("Episode")) {
+            emit nextEpisodeReady(QVariantMap{});
+            return;
+        }
+
+        // Step 2: fetch all episodes for the series, sorted by air order
+        QUrl epUrl(m_serverUrl + "/Shows/" + seriesId + "/Episodes");
+        QUrlQuery epQ;
+        epQ.addQueryItem("userId", m_userId);
+        epQ.addQueryItem("fields", "MediaSources,MediaStreams,Overview,Genres,UserData");
+        epQ.addQueryItem("enableUserData", "true");
+        epQ.addQueryItem("limit", "500");
+        epQ.addQueryItem("sortBy", "AiredEpisodeOrder");
+        epUrl.setQuery(epQ);
+
+        auto *epReply = jellyfinGet(epUrl);
+        connect(epReply, &QNetworkReply::finished, this,
+                [this, epReply, currentIndex, currentSeason]() {
+            epReply->deleteLater();
+            if (epReply->error() != QNetworkReply::NoError) {
+                emit nextEpisodeReady(QVariantMap{});
+                return;
+            }
+            QJsonArray episodes = QJsonDocument::fromJson(epReply->readAll())
+                                      .object()["Items"].toArray();
+
+            // Find the next episode: smallest (season > currentSeason) or
+            // (same season, episode index > currentIndex).
+            QJsonObject nextEp;
+            int nextSeason = 0;
+            int nextIndex  = 0;
+            for (const auto &ev : episodes) {
+                QJsonObject e = ev.toObject();
+                int s = e["ParentIndexNumber"].toInt();
+                int i = e["IndexNumber"].toInt();
+
+                if (s > currentSeason || (s == currentSeason && i > currentIndex)) {
+                    if (nextEp.isEmpty() || s < nextSeason ||
+                        (s == nextSeason && i < nextIndex)) {
+                        nextEp     = e;
+                        nextSeason = s;
+                        nextIndex  = i;
+                    }
+                }
+            }
+
+            if (nextEp.isEmpty()) {
+                emit nextEpisodeReady(QVariantMap{});
+                return;
+            }
+            emit nextEpisodeReady(formatItem(nextEp));
+        });
     });
 }
 

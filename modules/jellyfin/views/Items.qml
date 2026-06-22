@@ -60,8 +60,9 @@ FocusScope {
         } else if (mode === "episodes") {
             items = navParams.items || []
             if (items.length > 0) {
-                itemList.currentIndex = 0
-                itemList.positionViewAtIndex(0, ListView.Contain)
+                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
+                itemList.currentIndex = Math.min(restore, items.length - 1)
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
             }
         } else {
             isLoading = true

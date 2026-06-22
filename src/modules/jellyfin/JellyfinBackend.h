@@ -38,6 +38,7 @@ public:
     // Playback
     Q_INVOKABLE void get_playback_url(const QString &itemId, const QString &mediaSourceId,
                                        int audioStreamIndex, int subtitleStreamIndex);
+    Q_INVOKABLE void load_next_episode(const QString &currentItemId);
     Q_INVOKABLE void update_playback_progress(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks, bool isPaused);
     Q_INVOKABLE void report_playback_stopped(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks);
     Q_INVOKABLE void report_playback_start(const QString &itemId, const QString &mediaSourceId, const QString &audioStreamId, const QString &subtitleStreamId);
@@ -75,6 +76,9 @@ signals:
 
     // Emitted when server-side language preferences are loaded
     void serverLanguagePreferencesReady(const QString &audioLanguage, const QString &subtitleLanguage);
+
+    // Emitted with the next episode's full detail (empty map if none)
+    void nextEpisodeReady(const QVariantMap &detail);
 
 public slots:
     void onSettingChanged(const QString &moduleId, const QString &key, const QVariant &value);

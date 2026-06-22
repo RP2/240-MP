@@ -120,7 +120,6 @@ FocusScope {
             anchors.topMargin: root.sh * 0.0145833 //7
             height: root.sh * 0.3333 //160
             clip: true
-            focus: true
 
             delegate: Item {
                 width: seasonList.width

@@ -2,6 +2,7 @@ import QtQuick
 import Components
 
 FocusScope {
+    focus: true
     id: authRoot
 
     property var navParams: ({})

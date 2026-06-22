@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QDebug>
 
 #ifdef Q_OS_LINUX
@@ -151,9 +152,13 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     {
         QFile lf(m_logFilePath);
         if (lf.open(QFile::Append | QFile::Text)) {
+            QString safeUrl = url;
+            safeUrl.replace(QRegularExpression("[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]=[^&\\s]+"), "ApiKey=REDACTED");
+            safeUrl.replace(QRegularExpression("X-Plex-Token:[^\\s]+"), "X-Plex-Token=REDACTED");
+            safeUrl.replace(QRegularExpression("Token=\"[^\"]+\""), "Token=\"REDACTED\"");
             lf.write(QString("\n=== 240-MP session start %1 ===\n    url: %2\n\n")
                          .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
-                         .arg(url)
+                         .arg(safeUrl)
                          .toUtf8());
         }
     }
@@ -201,11 +206,11 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         args << QStringLiteral("--shuffle");
     if (muteAudio)
         args << QStringLiteral("--no-audio");
+    // yt-dlp hook intercepts HTTP media URLs and can break Plex/Jellyfin
+    // playback with spurious 401/400 errors — disable unconditionally.
+    args << QStringLiteral("--ytdl=no");
     if (!plexToken.isEmpty()) {
         args << QString("--http-header-fields=X-Plex-Token:%1").arg(plexToken);
-        // Plex URLs are direct file paths — yt-dlp hook is not needed and causes
-        // spurious 401 errors when mpv encounters a non-2xx response from PMS.
-        args << QStringLiteral("--ytdl=no");
     }
 
     // plex.direct certs are Let's Encrypt-signed but ffmpeg's bundled CA bundle
@@ -222,7 +227,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     connect(m_process, &QProcess::readyRead, this, [this]() {
         const QByteArray out = m_process->readAll();
         if (!out.isEmpty())
-            qWarning("[mpv] %s", out.trimmed().constData());
+            qDebug("[mpv] %s", out.trimmed().constData());
     });
 
     m_headlessMode = detectHeadlessMode();
@@ -315,7 +320,12 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         // approach doesn't apply here; --osd-fonts-dir is provider-independent.
         args << QString("--osd-fonts-dir=%1").arg(m_appRoot + "/assets/fonts");
 #endif
-        qDebug("[MpvController] desktop launch: mpv %s", qPrintable(args.join(" ")));
+        QString safeCmd = args.join(" ");
+        // Redact all token forms in debug output
+        safeCmd.replace(QRegularExpression("[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]=[^&\\s]+"), "ApiKey=REDACTED");
+        safeCmd.replace(QRegularExpression("X-Plex-Token:[^\\s]+"), "X-Plex-Token=REDACTED");
+        safeCmd.replace(QRegularExpression("Token=\"[^\"]+\""), "Token=\"REDACTED\"");
+        qDebug("[MpvController] desktop launch: mpv %s", qPrintable(safeCmd));
         m_process->start(bin, args);
         m_connectTimer->start();
     }

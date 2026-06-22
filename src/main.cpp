@@ -13,6 +13,7 @@
 #include "AppCore.h"
 #include "modules/local_files/LocalFilesBackend.h"
 #include "modules/plex/PlexBackend.h"
+#include "modules/jellyfin/JellyfinBackend.h"
 #include "modules/ambient_mode/AmbientModeBackend.h"
 #include "player/MpvController.h"
 #include "input/InputManager.h"
@@ -78,6 +79,7 @@ int main(int argc, char *argv[]) {
     AppCore             appCore(appRoot, dataRoot);
     LocalFilesBackend   localFiles(appRoot, dataRoot);
     PlexBackend         plexBackend(appRoot, dataRoot);
+    JellyfinBackend     jellyfinBackend(appRoot, dataRoot);
     AmbientModeBackend  ambientMode(dataRoot);
     MpvController       mpvController(appRoot, &appCore);
     InputManager        inputManager(dataRoot);
@@ -93,6 +95,7 @@ int main(int argc, char *argv[]) {
     QQmlContext *ctx = engine.rootContext();
     appCore.registerModule("com.240mp.local_files",  "localFilesBackend",  &localFiles,  ctx);
     appCore.registerModule("com.240mp.plex",         "plexBackend",        &plexBackend, ctx);
+    appCore.registerModule("com.240mp.jellyfin",     "jellyfinBackend",    &jellyfinBackend, ctx);
     appCore.registerModule("com.240mp.ambient_mode", "ambientModeBackend", &ambientMode, ctx);
 
     ctx->setContextProperty("appCore",       &appCore);

@@ -137,7 +137,7 @@ FocusScope {
         
         Keys.onReturnPressed: {
             var selectedModulePath = menuList.model[menuList.currentIndex].entry_point
-            console.log("Routing to: " + selectedModulePath)
+            // [dev] console.log("Routing to: " + selectedModulePath)
             appRoot.navigateTo(selectedModulePath, {}, { currentIndex: menuList.currentIndex })
         }
 

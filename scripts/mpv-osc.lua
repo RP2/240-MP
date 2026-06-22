@@ -47,8 +47,6 @@ local function get_sub_str()
 end
 
 local btn_actions = {
-    function() mp.command("no-osd cycle audio") end,
-    function() mp.command("no-osd cycle sub") end,
     function() mp.command("no-osd cycle-values panscan 0 1") end,
     function() mp.command("quit") end,
     function() mp.command("playlist-prev") end,
@@ -69,15 +67,11 @@ end
 
 local function build_left_btns(has_sub, has_pl, bar_w)
     local btns = {
-        {label="AUDIO", width=math.floor(bar_w * 0.109375), action=btn_actions[1]},
+        {label="CROP", width=math.floor(bar_w * 0.090625), action=btn_actions[1]},
     }
-    if has_sub then
-        table.insert(btns, {label="SUBTITLE", width=math.floor(bar_w * 0.15625), action=btn_actions[2]})
-    end
-    table.insert(btns, {label="CROP", width=math.floor(bar_w * 0.090625), action=btn_actions[3]})
     if has_pl then
-        table.insert(btns, {label="<", width=math.floor(bar_w * 0.055), action=btn_actions[5]})
-        table.insert(btns, {label=">", width=math.floor(bar_w * 0.055), action=btn_actions[6]})
+        table.insert(btns, {label="<", width=math.floor(bar_w * 0.055), action=btn_actions[3]})
+        table.insert(btns, {label=">", width=math.floor(bar_w * 0.055), action=btn_actions[4]})
     end
     return btns
 end
@@ -186,7 +180,7 @@ local function draw_menu()
     end
 
     -- ── Row 3: Buttons ────────────────────────────────────────────
-    -- Left group: AUDIO, [SUBTITLE], CROP
+    -- Left group: CROP
     local stop_idx = #left_btns + 1
     local bx = lm
     for i, btn in ipairs(left_btns) do
@@ -273,7 +267,7 @@ local function update_nav(action)
         if clamped <= #btns then
             btns[clamped].action()
         else
-            btn_actions[4]()
+            btn_actions[2]()
         end
     end
 

@@ -139,11 +139,11 @@ FocusScope {
         }
     }
 
-    function reportStopped(finalPositionMs, finalDurationMs) {
+    function reportStopped(finalPositionMs, finalDurationMs, failed) {
         if (stoppedReported) return
         stoppedReported = true
         var pos = lastKnownPositionMs || finalPositionMs
-        jellyfinBackend.report_playback_stopped(itemId, mediaSourceId, msToTicks(pos))
+        jellyfinBackend.report_playback_stopped(itemId, mediaSourceId, msToTicks(pos), failed || false)
     }
 
     function stopPlayback() {
@@ -303,8 +303,9 @@ FocusScope {
         function onPlaybackFailed() {
             // mpv exited with an error (e.g. DRM permissions, unsupported codec).
             // Report stopped so Jellyfin doesn't show this as still playing.
+            // Mark as failed so the server doesn't update the resume position.
             if (lastKnownPositionMs > 0)
-                reportStopped(lastKnownPositionMs, lastKnownDurationMs)
+                reportStopped(lastKnownPositionMs, lastKnownDurationMs, true)
             goBack()
         }
 

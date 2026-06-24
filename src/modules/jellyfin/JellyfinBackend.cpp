@@ -967,17 +967,21 @@ void JellyfinBackend::load_next_episode(const QString &currentItemId) {
 }
 
 void JellyfinBackend::report_playback_start(const QString &itemId, const QString &mediaSourceId,
-                                            const QString &audioStreamId, const QString &subtitleStreamId) {
+                                            const QString &audioStreamId, const QString &subtitleStreamId,
+                                            qint64 startPositionTicks) {
     if (!has_auth()) return;
 
     m_currentPlaySessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
     QJsonObject body;
-    body["ItemId"]          = itemId;
-    body["MediaSourceId"]   = mediaSourceId;
-    body["PlaySessionId"]   = m_currentPlaySessionId;
-    body["PlayMethod"]      = QStringLiteral("DirectPlay");
-    body["IsPaused"]        = false;
+    body["ItemId"]            = itemId;
+    body["MediaSourceId"]     = mediaSourceId;
+    body["PlaySessionId"]     = m_currentPlaySessionId;
+    body["PlayMethod"]        = QStringLiteral("Transcode");
+    body["IsPaused"]          = false;
+    body["CanSeek"]           = true;
+    if (startPositionTicks > 0)
+        body["StartPositionTicks"] = startPositionTicks;
     if (!audioStreamId.isEmpty())
         body["AudioStreamIndex"] = audioStreamId.toInt();
     if (!subtitleStreamId.isEmpty())
@@ -997,7 +1001,7 @@ void JellyfinBackend::update_playback_progress(const QString &itemId, const QStr
     body["MediaSourceId"]  = mediaSourceId;
     body["PositionTicks"]  = positionTicks;
     body["IsPaused"]       = isPaused;
-    body["PlayMethod"]     = QStringLiteral("DirectPlay");
+    body["PlayMethod"]     = QStringLiteral("Transcode");
     body["CanSeek"]        = true;
     if (!m_currentPlaySessionId.isEmpty())
         body["PlaySessionId"] = m_currentPlaySessionId;
@@ -1008,13 +1012,15 @@ void JellyfinBackend::update_playback_progress(const QString &itemId, const QStr
 }
 
 void JellyfinBackend::report_playback_stopped(const QString &itemId, const QString &mediaSourceId,
-                                              qint64 positionTicks) {
+                                              qint64 positionTicks, bool failed) {
     if (!has_auth()) return;
 
     QJsonObject body;
     body["ItemId"]        = itemId;
     body["MediaSourceId"] = mediaSourceId;
     body["PositionTicks"] = positionTicks;
+    body["PlayMethod"]    = QStringLiteral("Transcode");
+    body["Failed"]        = failed;
     if (!m_currentPlaySessionId.isEmpty())
         body["PlaySessionId"] = m_currentPlaySessionId;
 

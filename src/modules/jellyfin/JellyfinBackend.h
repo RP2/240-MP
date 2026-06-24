@@ -40,8 +40,8 @@ public:
                                        int audioStreamIndex, int subtitleStreamIndex);
     Q_INVOKABLE void load_next_episode(const QString &currentItemId);
     Q_INVOKABLE void update_playback_progress(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks, bool isPaused);
-    Q_INVOKABLE void report_playback_stopped(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks);
-    Q_INVOKABLE void report_playback_start(const QString &itemId, const QString &mediaSourceId, const QString &audioStreamId, const QString &subtitleStreamId);
+    Q_INVOKABLE void report_playback_stopped(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks, bool failed = false);
+    Q_INVOKABLE void report_playback_start(const QString &itemId, const QString &mediaSourceId, const QString &audioStreamId, const QString &subtitleStreamId, qint64 startPositionTicks = 0);
 
     // URL helpers for QML
     Q_INVOKABLE QString image_url(const QString &itemId, const QString &imageType, int width, int height);

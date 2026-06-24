@@ -195,8 +195,10 @@ FocusScope {
         if (isLaunching) return
         if (focusRow === 0 && detail) {
             isLaunching = true
+            var startTicks = (detail.viewOffset || 0) * 10000
             jellyfinBackend.report_playback_start(detail.itemId, detail.mediaSourceId || detail.itemId,
-                                                  detailRoot.selectedAudioId(), detailRoot.selectedSubtitleId())
+                                                  detailRoot.selectedAudioId(), detailRoot.selectedSubtitleId(),
+                                                  startTicks)
             jellyfinBackend.get_playback_url(detail.itemId, detail.mediaSourceId || detail.itemId,
                                              detailRoot.selectedStreamIdx("audio"),
                                              detailRoot.selectedStreamIdx("subtitle"))

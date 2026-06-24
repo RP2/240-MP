@@ -153,7 +153,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         QFile lf(m_logFilePath);
         if (lf.open(QFile::Append | QFile::Text)) {
             QString safeUrl = url;
-            safeUrl.replace(QRegularExpression("[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]=[^&\\s]+"), "ApiKey=REDACTED");
+            safeUrl.replace(QRegularExpression("Api[_-]?Key=[^&\\s]+", QRegularExpression::CaseInsensitiveOption), "ApiKey=REDACTED");
             safeUrl.replace(QRegularExpression("X-Plex-Token:[^\\s]+"), "X-Plex-Token=REDACTED");
             safeUrl.replace(QRegularExpression("Token=\"[^\"]+\""), "Token=\"REDACTED\"");
             lf.write(QString("\n=== 240-MP session start %1 ===\n    url: %2\n\n")
@@ -322,7 +322,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
 #endif
         QString safeCmd = args.join(" ");
         // Redact all token forms in debug output
-        safeCmd.replace(QRegularExpression("[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]=[^&\\s]+"), "ApiKey=REDACTED");
+        safeCmd.replace(QRegularExpression("Api[_-]?Key=[^&\\s]+", QRegularExpression::CaseInsensitiveOption), "ApiKey=REDACTED");
         safeCmd.replace(QRegularExpression("X-Plex-Token:[^\\s]+"), "X-Plex-Token=REDACTED");
         safeCmd.replace(QRegularExpression("Token=\"[^\"]+\""), "Token=\"REDACTED\"");
         qDebug("[MpvController] desktop launch: mpv %s", qPrintable(safeCmd));

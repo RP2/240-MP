@@ -15,6 +15,7 @@ Quick Connect only — enter your server URL, a 6-digit code appears, approve it
 | Libraries | Choose which libraries to browse |
 | Video Quality | HLS transcode resolution: **480p (NTSC CRT)**, **576p (PAL CRT)**, **720p**, **1080p** |
 | Resume Playback | Ask / Always / Never |
+| Autoplay Next Episode | Toggle on/off |
 | Sign out | Logout |
 
 ## Browse
@@ -30,8 +31,7 @@ mpv receives `--ytdl=no` unconditionally to prevent yt-dlp from intercepting med
 
 ## Pi / CRT notes
 
-- Pi 3B+ uses `--hwdec=v4l2m2m` (zero-copy) for smooth playback. This path cannot crop — widescreen content gets black bars on 4:3 CRTs.  
-  To enable cropping: override `mpv_video_args` in `config.json` (e.g. `"--vo=gpu --gpu-context=drm --hwdec=v4l2m2m-copy --panscan=1.0"`). Copy mode uses more CPU but panscan works.
+- Pi 3B+ uses `--hwdec=v4l2m2m` (zero-copy) for smooth playback. This path cannot crop — widescreen content gets black bars on 4:3 CRTs.
 - Pi 4/5 handles cropping natively.
 - Use the CRT quality presets to offload to NAS transcoding on weak hardware.
 

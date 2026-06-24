@@ -22,7 +22,7 @@ static QString authHeaderValue(const QString &token, const QString &deviceId) {
     QString auth = QStringLiteral("MediaBrowser Client=\"240-MP\", Device=\"%1\", DeviceId=\"%2\", Version=\"%3\"")
                        .arg(QSysInfo::machineHostName(), deviceId, QCoreApplication::applicationVersion());
     if (!token.isEmpty())
-        auth += QStringLiteral(", Token=\"") + token + QStringLiteral("\"");
+        auth += QStringLiteral(", Token=\"%1\"").arg(token);
     return auth;
 }
 

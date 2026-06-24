@@ -149,6 +149,14 @@ int JellyfinBackend::videoQualityBitrate() const {
     return 4000000; // 480p default
 }
 
+int JellyfinBackend::videoQualityMaxHeight() const {
+    QString quality = moduleConfig()["video_quality"].toString("480p");
+    if (quality == QLatin1String("1080p")) return 1080;
+    if (quality == QLatin1String("720p"))  return 720;
+    if (quality == QLatin1String("576p"))  return 576;
+    return 480;
+}
+
 QString JellyfinBackend::resumePlaybackMode() const {
     return moduleConfig()["resume_playback"].toString("ask");
 }
@@ -798,6 +806,7 @@ void JellyfinBackend::get_playback_url(const QString &itemId, const QString &med
     if (subtitleStreamIndex >= 0)
         body["SubtitleStreamIndex"]= subtitleStreamIndex;
     body["MaxStreamingBitrate"]    = videoQualityBitrate();
+    body["MaxHeight"]              = videoQualityMaxHeight();
     body["EnableDirectPlay"]       = false;
     body["EnableDirectStream"]     = false;
 

@@ -117,6 +117,7 @@ private:
     void saveConfig(const QJsonObject &cfg) const;
 
     int videoQualityBitrate() const;
+    int videoQualityMaxHeight() const;
     QString resumePlaybackMode() const;
     QJsonObject moduleConfig() const;
 };

@@ -299,6 +299,15 @@ FocusScope {
             pendingNextEpisode = true
             jellyfinBackend.load_next_episode(itemId)
         }
+
+        function onPlaybackFailed() {
+            // mpv exited with an error (e.g. DRM permissions, unsupported codec).
+            // Report stopped so Jellyfin doesn't show this as still playing.
+            if (lastKnownPositionMs > 0)
+                reportStopped(lastKnownPositionMs, lastKnownDurationMs)
+            goBack()
+        }
+
     }
 
     Timer {
@@ -331,6 +340,14 @@ FocusScope {
         } else {
             beginPlayback(viewOffset)
         }
+    }
+
+    // Safety net: if the Player view is destroyed (e.g. app quit, back nav
+    // without stopping), report stopped so Jellyfin doesn't show this as
+    // still playing. The guard in reportStopped prevents double-reporting.
+    Component.onDestruction: {
+        if (lastKnownPositionMs > 0)
+            reportStopped(lastKnownPositionMs, lastKnownDurationMs)
     }
 
     Rectangle {

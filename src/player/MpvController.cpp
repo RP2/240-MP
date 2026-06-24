@@ -539,7 +539,10 @@ void MpvController::appendVideoArgs(QStringList &args) const {
             args << "--vo=gpu" << "--gpu-context=drm" << "--hwdec=v4l2m2m";
         } else {
             // Pi 5 (Full KMS) and the safe fallback for unknown headless Linux.
-            args << "--vo=drm" << "--hwdec=auto-safe";
+            // --monitorpixelaspect=0.82 corrects non-square pixel aspect on
+            // composite CRTs (704×432 on 4:3). Pure math, zero rendering cost.
+            args << "--vo=drm" << "--hwdec=auto-safe"
+                 << "--monitorpixelaspect=0.82";
         }
     } else {
 #ifdef Q_OS_MACOS

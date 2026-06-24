@@ -285,27 +285,26 @@ FocusScope {
             if (ms > 0) playerRoot.lastKnownDurationMs = ms
         }
 
-        function onPlaybackFinished(finalPositionMs, finalDurationMs) {
-            // mpv exited because the user quit/stopped — return to the detail view.
-            reportStopped(finalPositionMs, finalDurationMs)
-            goBack()
-        }
+        function onPlaybackEnded(finalPositionMs, finalDurationMs, reason) {
+            if (reason === "failed") {
+                // mpv exited with an error. Report as failed so the server
+                // doesn't update the resume position. reportStopped uses the
+                // last known position internally, so this is safe even when
+                // mpv exited before the first position update.
+                reportStopped(finalPositionMs, finalDurationMs, true)
+                goBack()
+                return
+            }
 
-        function onPlaybackFinishedNaturally(finalPositionMs, finalDurationMs) {
-            // mpv reached the end of the file. Mark it stopped in Jellyfin,
-            // then auto-advance to the next episode if the feature is enabled.
+            // Both a natural end ("eof") and user quit ("stopped") save
+            // the current position for resume. A natural end only attempts
+            // to auto-advance when the user has autoplay enabled.
             reportStopped(finalPositionMs, finalDurationMs)
-            if (!autoplayNext) { goBack(); return }
-            pendingNextEpisode = true
-            jellyfinBackend.load_next_episode(itemId)
-        }
-
-        function onPlaybackFailed() {
-            // mpv exited with an error (e.g. DRM permissions, unsupported codec).
-            // Report stopped so Jellyfin doesn't show this as still playing.
-            // Mark as failed so the server doesn't update the resume position.
-            if (lastKnownPositionMs > 0)
-                reportStopped(lastKnownPositionMs, lastKnownDurationMs, true)
+            if (reason === "eof" && autoplayNext) {
+                pendingNextEpisode = true
+                jellyfinBackend.load_next_episode(itemId)
+                return
+            }
             goBack()
         }
 

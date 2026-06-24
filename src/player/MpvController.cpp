@@ -140,7 +140,9 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     const QString bin = QStandardPaths::findExecutable("mpv");
     if (bin.isEmpty()) {
         qWarning("[MpvController] mpv not found in PATH");
-        QTimer::singleShot(0, this, [this]() { emit playbackFinished(0, 0); });
+        QTimer::singleShot(0, this, [this]() {
+            emit playbackEnded(0, 0, QStringLiteral("stopped"));
+        });
         return;
     }
 
@@ -415,10 +417,15 @@ void MpvController::onProcessFinished() {
     m_position = 0;
     m_duration = 0;
 
-    // mpv reports reason "eof" only when the file played to its natural end.
-    // Any other reason (quit/stop/error) or a missing end-file event (crash/kill)
-    // is treated as a non-natural exit — the safe default that never auto-advances.
-    const bool naturalEof = (m_lastEndFileReason == "eof");
+    // Classify why mpv exited, once, so both the headless and desktop paths emit
+    // the same playbackEnded reason:
+    //   exit code 2          -> "failed"  (file could not be played; up to the module as to what to do. As an example: Plex attemps a retry in this case)
+    //   end-file reason "eof"-> "eof"     (natural end; up to the module as to what to do. As an example: Plex autoplays next)
+    //   anything else        -> "stopped" (user quit/stop, crash, or kill; a safe default)
+    QString reason;
+    if (exitCode == 2)                    reason = QStringLiteral("failed");
+    else if (m_lastEndFileReason == "eof") reason = QStringLiteral("eof");
+    else                                   reason = QStringLiteral("stopped");
 
     if (m_headlessMode) {
         // Defer DRM restore and VT switch by 200 ms. mpv's last KMS atomic
@@ -428,20 +435,15 @@ void MpvController::onProcessFinished() {
         // the kernel falls back to showing the text console on Qt's VT.
         // 200 ms is more than three VSync periods at 60 Hz — enough to clear
         // any in-flight commit without a perceptible delay for the user.
-        QTimer::singleShot(200, this, [this, pos, dur, naturalEof]() {
-            doHeadlessRestore(pos, dur, naturalEof);
+        QTimer::singleShot(200, this, [this, pos, dur, reason]() {
+            doHeadlessRestore(pos, dur, reason);
         });
     } else {
-        if (exitCode == 2)
-            emit playbackFailed();
-        else if (naturalEof)
-            emit playbackFinishedNaturally(pos, dur);
-        else
-            emit playbackFinished(pos, dur);
+        emit playbackEnded(pos, dur, reason);
     }
 }
 
-void MpvController::doHeadlessRestore(int pos, int dur, bool naturalEof) {
+void MpvController::doHeadlessRestore(int pos, int dur, const QString &reason) {
 #ifdef Q_OS_LINUX
     if (m_qtDrmFd >= 0) {
         if (::ioctl(m_qtDrmFd, DRM_IOCTL_SET_MASTER, 0) < 0) {
@@ -464,10 +466,7 @@ void MpvController::doHeadlessRestore(int pos, int dur, bool naturalEof) {
         switchToVt(prevVt);
     }
     m_headlessMode = false;
-    if (naturalEof)
-        emit playbackFinishedNaturally(pos, dur);
-    else
-        emit playbackFinished(pos, dur);
+    emit playbackEnded(pos, dur, reason);
 }
 
 void MpvController::sendCommand(const QJsonArray &args) {
@@ -536,7 +535,13 @@ void MpvController::appendVideoArgs(QStringList &args) const {
             // straight to a DRM overlay plane for the lowest possible CPU (~15%) with
             // smooth playback. The one trade-off: the overlay plane can't zoom/crop,
             // so mpv's --panscan (the OSC crop button) blanks the video on this path.
-            args << "--vo=gpu" << "--gpu-context=drm" << "--hwdec=v4l2m2m";
+            // The "smooth_playback" setting (default ON) lets the user opt out: when
+            // OFF we fall back to the crop-capable scaler path (--vo=drm) at the cost
+            // of higher CPU and less smooth cadence.
+            if (smoothPlaybackEnabled())
+                args << "--vo=gpu" << "--gpu-context=drm" << "--hwdec=v4l2m2m";
+            else
+                args << "--vo=drm" << "--hwdec=v4l2m2m-copy";
         } else {
             // Pi 5 (Full KMS) and the safe fallback for unknown headless Linux.
             // --monitorpixelaspect=0.82 corrects non-square pixel aspect on
@@ -551,6 +556,24 @@ void MpvController::appendVideoArgs(QStringList &args) const {
 #endif
         // Other desktop (X11/Wayland dev): leave mpv's defaults untouched.
     }
+}
+
+bool MpvController::smoothPlaybackEnabled() const {
+    // Default ON: only an explicit "Off" opts out. Stored by Settings as a string
+    // ("On"/"Off") via the list_single row, so compare on the string form.
+    if (!m_appCore)
+        return true;
+    const QVariant v = m_appCore->get_setting(QString(), "smooth_playback");
+    if (!v.isValid() || v.toString().isEmpty())
+        return true;
+    return v.toString().compare(QStringLiteral("Off"), Qt::CaseInsensitive) != 0;
+}
+
+bool MpvController::hasSmoothPlaybackTradeoff() const {
+    // Only the Pi 3 overlay path sacrifices crop/zoom for smoothness. Every other
+    // profile (Pi 4 copy path, Pi 5/generic --vo=drm, desktop) can already crop, so
+    // the toggle would be a no-op there and is hidden.
+    return m_videoProfile == VideoProfile::Pi3;
 }
 
 int MpvController::getActiveVt() const {

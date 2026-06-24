@@ -107,7 +107,12 @@ FocusScope {
             }
         }
 
-        function onPlaybackFinished(finalPositionMs, finalDurationMs) {
+        // mpv exited for any reason ("eof"/"stopped"/"failed"). Local Files has no
+        // autoplay-next or transcode-retry, so every exit is handled the same way:
+        // save/clear the resume position and return to the menu. Handling the single
+        // playbackEnded signal here is what keeps the app from freezing on a natural
+        // end-of-file (the original bug was a missing per-reason handler).
+        function onPlaybackEnded(finalPositionMs, finalDurationMs, reason) {
             var pos   = lastKnownPositionMs  || finalPositionMs
             var dur   = lastKnownDurationMs  || finalDurationMs
             var plPos = lastKnownPlaylistPos

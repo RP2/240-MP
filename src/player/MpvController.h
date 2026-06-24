@@ -52,18 +52,26 @@ public:
     Q_INVOKABLE void seekTo(int positionMs);
     Q_INVOKABLE void sendKey(const QString &key);
 
+    // True only on devices whose smooth-playback decode path can't crop/zoom (the
+    // Pi 3 DRM-overlay path). Settings uses this to show the "Smooth Playback"
+    // toggle only where the smoothness-vs-crop trade-off actually exists.
+    Q_INVOKABLE bool hasSmoothPlaybackTradeoff() const;
+
 signals:
     void positionChanged(int ms);
     void durationChanged(int ms);
     void playlistPosChanged(int pos);
-    // Emitted when mpv exits because the user quit/stopped playback before the end.
-    void playbackFinished(int finalPositionMs, int finalDurationMs);
-    // Emitted when mpv exits because the file played to its natural end (mpv's
-    // end-file event reported reason "eof"). Used to trigger autoplay-next.
-    void playbackFinishedNaturally(int finalPositionMs, int finalDurationMs);
-    // Emitted when mpv exits with an error (code 2 — file could not be played).
-    // Player.qml uses this to retry with transcoding.
-    void playbackFailed();
+    // Emitted exactly once when mpv exits, with the reason it ended:
+    //   "eof"     — file played to its natural end. (What a module does with this
+    //               is its own concern.  as an example: Plex may autoplay the next episode)
+    //   "stopped" — user quit/stopped before the end (also the safe default for a
+    //               crash/kill with no end-file event).
+    //   "failed"  — mpv exited with an error (code 2 — file could not be played;
+    //               Up to the module as to when/how to use; for example Plex retries when transcoding).
+    // A single signal (rather than one per reason) is deliberate: a Player view
+    // connects one handler and branches on `reason`, so it can never silently drop
+    // a case the way an unhandled per-reason signal would.
+    void playbackEnded(int finalPositionMs, int finalDurationMs, const QString &reason);
 
 private slots:
     void onProcessFinished();
@@ -75,12 +83,15 @@ private:
     enum class VideoProfile { Pi3, Pi4, PiFullKms, Generic };
 
     void sendCommand(const QJsonArray &args);
-    void doHeadlessRestore(int pos, int dur, bool naturalEof);
+    void doHeadlessRestore(int pos, int dur, const QString &reason);
     bool detectHeadlessMode() const;
     VideoProfile detectVideoProfile() const;
     // Appends the profile-specific --vo/--gpu-context/--hwdec flags (honouring the
     // app-level "mpv_video_args" override) to a forming mpv argument list.
     void appendVideoArgs(QStringList &args) const;
+    // App-level "smooth_playback" setting (default ON). On the Pi 3 this selects the
+    // smooth zero-copy overlay path; turning it OFF restores the crop-capable scaler path.
+    bool smoothPlaybackEnabled() const;
     int  getActiveVt() const;
     int  findFreeVt() const;
     int  findQtDrmFd() const;

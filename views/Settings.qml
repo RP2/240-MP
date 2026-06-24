@@ -48,8 +48,24 @@ FocusScope {
             label: "Color Scheme",
             options: colorOpts,
             value: appSettings["color_scheme"] || "Video 1",
+            description: "Choose your prefered color scheme\nPlease see the wiki for details on adding a custom one",
             moduleId: ""
         })
+
+        // Smooth Playback — only shown on devices whose smooth decode path can't
+        // crop/zoom (the Pi 3 overlay path). Default ON; turning it off restores the
+        // crop-capable video output. Takes effect on the next video.
+        if (mpvController.hasSmoothPlaybackTradeoff()) {
+            items.push({
+                type: "list_single",
+                key: "smooth_playback",
+                label: "1080p Playback",
+                options: ["On", "Off"],
+                value: appSettings["smooth_playback"] || "On",
+                description: "[ON] Enable 1080p content playback, crop will not function\n[OFF] Enable crop, 1080p content playback will stutter",
+                moduleId: ""
+            })
+        }
 
         // MODULES section — only show modules with has_settings
         var hasModuleSettings = false
@@ -58,7 +74,7 @@ FocusScope {
         }
 
         if (hasModuleSettings) {
-            items.push({ type: "section", label: "Modules:" })
+            items.push({ type: "section", label: "Modules" })
             for (var j = 0; j < installedModules.length; j++) {
                 var m = installedModules[j]
                 if (m.has_settings) {
@@ -68,7 +84,7 @@ FocusScope {
         }
 
         // SYSTEM section
-        items.push({ type: "section", label: "System:" })
+        items.push({ type: "section", label: "System" })
         items.push({ type: "quit", label: "Quit 240-MP" })
 
         settingsItems = items
@@ -265,6 +281,33 @@ FocusScope {
                     }
                 }
             }
+        }
+    }
+
+    // --- HELP TEXT --- (shown when a focused row has a description)
+    Rectangle {
+        id: rowHelpBackground
+        property var currentRow: settingsRoot.settingsItems[settingsList.currentIndex]
+        visible: !!(currentRow && currentRow.description)
+        color: root.accentColor
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.bottomMargin: root.sh * 0.1583333 //76
+        anchors.leftMargin: root.sw * 0.125 //80
+        width: root.sw * 0.75 //480
+        height: root.sh * 0.0583333 //28
+        clip: true
+        Text {
+            id: rowHelp
+            text: (rowHelpBackground.currentRow && rowHelpBackground.currentRow.description) || ""
+            color: root.surfaceColor
+            font.family: root.globalFont
+            font.pixelSize: root.sh * 0.0291667 //14
+            wrapMode: Text.WordWrap
+            anchors.fill: parent
+            anchors.margins: root.sw * 0.0125 //6
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
         }
     }
 

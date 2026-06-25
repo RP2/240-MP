@@ -15,7 +15,7 @@ FocusScope {
     property string parentId: navParams.parentId || ""
     property string listTitle: navParams.title || ""
     property string includeTypes: navParams.includeTypes || "Movie"
-    property string mode: navParams.mode || "browse"   // "browse" or "resume"
+    property string mode: navParams.mode || "browse"   // "browse", "resume", or "up_next"
 
     property var items: []
     property bool isLoading: false
@@ -45,6 +45,16 @@ FocusScope {
             }
         }
 
+        function onUpNextLoaded(loadedItems) {
+            if (itemListRoot.mode !== "up_next") return
+            itemListRoot.isLoading = false
+            itemListRoot.items = loadedItems
+            if (loadedItems.length > 0) {
+                itemList.currentIndex = 0
+                itemList.positionViewAtIndex(0, ListView.Contain)
+            }
+        }
+
         function onErrorOccurred(msg) {
             itemListRoot.isLoading = false
             itemListRoot.errorMessage = msg
@@ -64,6 +74,10 @@ FocusScope {
                 itemList.currentIndex = Math.min(restore, items.length - 1)
                 itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
             }
+        } else if (mode === "up_next") {
+            isLoading = true
+            errorMessage = ""
+            jellyfinBackend.load_up_next()
         } else {
             isLoading = true
             errorMessage = ""

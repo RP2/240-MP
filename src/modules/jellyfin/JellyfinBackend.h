@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void load_seasons(const QString &seriesId);
     Q_INVOKABLE void load_episodes(const QString &seriesId, const QString &seasonId);
     Q_INVOKABLE void load_continue_watching();
+    Q_INVOKABLE void load_up_next();
 
     // Playback
     Q_INVOKABLE void get_playback_url(const QString &itemId, const QString &mediaSourceId,
@@ -63,6 +64,7 @@ signals:
     void seasonsLoaded(const QVariant &seasons);
     void episodesLoaded(const QVariant &episodes);
     void continueWatchingLoaded(const QVariant &items);
+    void upNextLoaded(const QVariant &items);
     void streamUrlReady(const QString &url);
     void dynamicOptionsReady(const QString &key, const QVariant &options);
     void errorOccurred(const QString &message);

@@ -19,8 +19,9 @@ FocusScope {
         target: jellyfinBackend
 
         function onLibrariesLoaded(items) {
-            // Insert Continue Watching as the first entry
+            // Insert Continue Watching and Up Next as the first entries
             var withResume = items.slice()
+            withResume.unshift({ key: "up_next", title: "UP NEXT" })
             withResume.unshift({ key: "continue_watching", title: "CONTINUE WATCHING" })
             browseRoot.libraries = withResume
             if (withResume.length > 0) {
@@ -92,6 +93,14 @@ FocusScope {
                 browseRoot.navigateTo("Items.qml", {
                     mode: "resume",
                     title: "CONTINUE WATCHING"
+                }, { currentIndex: libraryList.currentIndex })
+                return
+            }
+
+            if (lib.key === "up_next") {
+                browseRoot.navigateTo("Items.qml", {
+                    mode: "up_next",
+                    title: "UP NEXT"
                 }, { currentIndex: libraryList.currentIndex })
                 return
             }

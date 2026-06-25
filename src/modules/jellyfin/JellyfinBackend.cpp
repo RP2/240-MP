@@ -786,6 +786,36 @@ void JellyfinBackend::load_continue_watching() {
     });
 }
 
+void JellyfinBackend::load_up_next() {
+    if (!has_auth()) {
+        emit errorOccurred("NOT AUTHENTICATED");
+        return;
+    }
+
+    QUrl url(m_serverUrl + "/Shows/NextUp");
+    QUrlQuery q;
+    q.addQueryItem("userId", m_userId);
+    q.addQueryItem("limit", "20");
+    q.addQueryItem("fields", "MediaSources,MediaStreams,Overview,Genres,UserData");
+    q.addQueryItem("enableUserData", "true");
+    url.setQuery(q);
+
+    auto *reply = jellyfinGet(url);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred("LOAD UP NEXT FAILED: " + reply->errorString());
+            return;
+        }
+
+        QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
+        QVariantList result;
+        for (const QJsonValue &v : items)
+            result.append(formatItem(v.toObject()));
+        emit upNextLoaded(result);
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Playback
 // ---------------------------------------------------------------------------

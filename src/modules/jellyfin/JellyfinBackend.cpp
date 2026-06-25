@@ -920,6 +920,23 @@ void JellyfinBackend::get_playback_url(const QString &itemId, const QString &med
             fullUrl += "&SubtitleMethod=Encode";
         }
 
+        // Enforce max height from quality setting — the server's TranscodingUrl may
+        // include a VideoBitrate cap (from our PlaybackInfo POST) but omit MaxHeight,
+        // resulting in a full-resolution transcode. Inject it here so 480p/720p etc.
+        // actually constrain the output resolution.
+        {
+            const int maxHeight = videoQualityMaxHeight();
+            if (maxHeight > 0) {
+                QRegularExpression heightRe("(MaxHeight|Height)=[^&]+",
+                                            QRegularExpression::CaseInsensitiveOption);
+                const QString replacement = "MaxHeight=" + QString::number(maxHeight);
+                if (fullUrl.contains(heightRe))
+                    fullUrl.replace(heightRe, replacement);
+                else
+                    fullUrl += "&" + replacement;
+            }
+        }
+
         // [dev] qDebug("[JellyfinBackend] PlaybackInfo URL ready audio=%d sub=%d psId=%s",
         // [dev]        audioStreamIndex, subtitleStreamIndex, qPrintable(freshPlaySessionId.left(8)));
         emit streamUrlReady(fullUrl);
@@ -1010,12 +1027,12 @@ void JellyfinBackend::report_playback_start(const QString &itemId, const QString
                                             qint64 startPositionTicks) {
     if (!has_auth()) return;
 
-    m_currentPlaySessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
     QJsonObject body;
     body["ItemId"]            = itemId;
     body["MediaSourceId"]     = mediaSourceId;
-    body["PlaySessionId"]     = m_currentPlaySessionId;
+    body["PlaySessionId"]     = sessionId;
     body["PlayMethod"]        = QStringLiteral("Transcode");
     body["IsPaused"]          = false;
     body["CanSeek"]           = true;
@@ -1028,7 +1045,16 @@ void JellyfinBackend::report_playback_start(const QString &itemId, const QString
 
     QUrl url(m_serverUrl + "/Sessions/Playing");
     auto *reply = jellyfinPost(url, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, sessionId]() {
+        reply->deleteLater();
+        if (reply->error() == QNetworkReply::NoError) {
+            m_currentPlaySessionId = sessionId;
+            qDebug("[Jellyfin] Playback session started: %s", qPrintable(sessionId));
+        } else {
+            qWarning("[Jellyfin] Failed to start playback session: %s",
+                     qPrintable(reply->errorString()));
+        }
+    });
 }
 
 void JellyfinBackend::update_playback_progress(const QString &itemId, const QString &mediaSourceId,

@@ -231,7 +231,7 @@ FocusScope {
             audioTrack = audioStreams.length > 0 ? audioIdx + 1 : 0
             subTrack   = subtitleIdx >= 0 ? subtitleIdx + 1 : -1
         }
-        mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0, audioTrack, subTrack, [], false, -1, 0.0, "")
+        mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0, audioTrack, subTrack, [], [], false, -1, 0.0, "")
     }
 
     function formatTime(ms) {

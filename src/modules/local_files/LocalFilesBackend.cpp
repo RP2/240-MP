@@ -69,6 +69,15 @@ void LocalFilesBackend::clearPosition(const QString &filePath) {
     saveHistory(history);
 }
 
+void LocalFilesBackend::get_auto_subtitles_options() {
+    QVariantList options;
+    QVariantMap forced; forced["id"] = "forced"; forced["label"] = "Forced Only"; forced["old"] = false;
+    QVariantMap on;     on["id"] = "on";         on["label"] = "On";              on["old"] = true;
+    QVariantMap off;    off["id"] = "off";       off["label"] = "Off";
+    options << forced << on << off;
+    emit dynamicOptionsReady("auto_subtitles", options);
+}
+
 void LocalFilesBackend::get_resume_playback_options() {
     QVariantList options;
     QVariantMap ask; ask["id"] = "ask"; ask["label"] = "Ask";
@@ -76,6 +85,28 @@ void LocalFilesBackend::get_resume_playback_options() {
     QVariantMap no;  no["id"]  = "no";  no["label"]  = "Never";
     options << ask << yes << no;
     emit dynamicOptionsReady("resume_playback", options);
+}
+
+void LocalFilesBackend::get_subtitle_languages() {
+    QStringList addedLabels;
+    QVariantList options;
+
+    QFile file(m_appRoot + "/modules/local_files/iso639-1.json");
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+
+    options.append(QVariantMap{{"id","-"},{"label","Any"}});
+
+    QVariantList locList = QJsonDocument::fromJson(file.readAll()).toVariant().toList();
+    for (const QVariant loc : locList)
+    {
+        QVariantMap langOption = QVariantMap{{"id",loc.toJsonObject()["id"].toString()},{"label",loc.toJsonObject()["label"].toString()}};
+        if (langOption["label"].toString() == "" || addedLabels.contains(langOption["label"].toString())) continue;
+        addedLabels.append(langOption["label"].toString());
+        options.append(langOption);
+    }
+
+    emit dynamicOptionsReady("sub_lang", options);
 }
 
 QString LocalFilesBackend::mediaRoot() const {

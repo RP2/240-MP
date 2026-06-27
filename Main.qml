@@ -92,9 +92,20 @@ Window {
     Component.onCompleted: {
         var cfg = appCore.get_settings()
 
+        var cThemes = appCore.getCustomColorSchemes()
+        if (Object.keys(cThemes).length > 0) {
+            var t = Object.assign({}, themes, root.allThemes)
+            for (var cTheme in cThemes) {
+                if (Object.keys(cThemes[cTheme]).length === 5) {
+                    t[cTheme] = cThemes[cTheme]
+                }
+            }
+            root.allThemes = t
+        }
+
         var custom = appCore.getCustomColorScheme()
         if (Object.keys(custom).length === 5) {
-            var t = Object.assign({}, themes)
+            var t = Object.assign({}, themes, root.allThemes)
             t["Custom"] = custom
             root.allThemes = t
         }

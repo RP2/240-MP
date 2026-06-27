@@ -159,10 +159,6 @@ int JellyfinBackend::videoQualityMaxHeight() const {
     return 480;
 }
 
-QString JellyfinBackend::resumePlaybackMode() const {
-    return moduleConfig()["resume_playback"].toString("ask");
-}
-
 // ---------------------------------------------------------------------------
 // HTTP helpers
 // ---------------------------------------------------------------------------
@@ -1256,7 +1252,6 @@ void JellyfinBackend::getVideoQualities() {
 }
 
 void JellyfinBackend::get_resume_playback_options() {
-    QString current = resumePlaybackMode();
     QVariantList options;
     auto add = [&](const QString &value, const QString &label) {
         QVariantMap m;
@@ -1264,9 +1259,8 @@ void JellyfinBackend::get_resume_playback_options() {
         m["label"] = label;
         options.append(m);
     };
-    add("ask",   "Ask");
-    add("always","Always");
-    add("never", "Never");
+    add("ask",    "Ask");      // prompt resume vs. start over when a position exists
+    add("always", "Always");   // resume directly, no prompt
     emit dynamicOptionsReady("resume_playback", options);
 }
 

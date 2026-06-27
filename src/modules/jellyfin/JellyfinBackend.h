@@ -122,6 +122,5 @@ private:
 
     int videoQualityBitrate() const;
     int videoQualityMaxHeight() const;
-    QString resumePlaybackMode() const;
     QJsonObject moduleConfig() const;
 };

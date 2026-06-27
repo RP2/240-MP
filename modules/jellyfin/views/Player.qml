@@ -34,9 +34,6 @@ FocusScope {
     property string carryAudioLang:     ""
     property string carrySubLang:       "__off__"
 
-    // When true, skip the "Resume / Start from beginning" dialog and always resume
-    property bool resumeSkip: navParams.resumeSkip || false
-
     property int    audioIdx:    0
     property int    subtitleIdx: -1
 
@@ -171,7 +168,6 @@ FocusScope {
         playbackStarted      = false
         lastKnownPositionMs  = 0
         lastKnownDurationMs  = 0
-        resumeSkip           = false
 
         // Repoint the BACK target so exiting returns to THIS episode's detail
         updateBackItem({
@@ -373,13 +369,10 @@ FocusScope {
         var autoplayRaw = appCore.get_setting(moduleRoot.moduleId, "autoplay_next_episode")
         autoplayNext = (autoplayRaw === true || autoplayRaw === "ON")
 
-        if (resumeSkip) {
-            // Continue Watching: always resume, no dialog
-            beginPlayback(viewOffset)
-        } else if (resumeSetting === "ask" && viewOffset > 0) {
+        // "ask": prompt resume vs. start over when there's a saved position.
+        // "always" (or anything else): resume directly.
+        if (resumeSetting === "ask" && viewOffset > 0) {
             overlayVisible = true
-        } else if (resumeSetting === "never") {
-            beginPlayback(0)
         } else {
             beginPlayback(viewOffset)
         }

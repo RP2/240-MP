@@ -12,9 +12,6 @@ FocusScope {
 
     property var item: navParams.item || {}
 
-    // True when launched from Continue Watching → always resume, skip the "Ask" dialog
-    property bool resumeSkip: navParams.resumeSkip || false
-
     // Loaded detail from backend
     property var detail: null
 
@@ -112,7 +109,6 @@ FocusScope {
                 mediaSourceId: d.mediaSourceId || d.itemId,
                 title: d.title,
                 viewOffset: d.viewOffset || 0,
-                resumeSkip: detailRoot.resumeSkip,
                 audioStreams: d.audioStreams || [],
                 subtitleStreams: d.subtitleStreams || [],
                 selectedAudioId: detailRoot.selectedAudioId(),
@@ -310,7 +306,7 @@ FocusScope {
 
                 Text {
                     anchors.centerIn: parent
-                    text: (resumeSkip || (detail && detail.viewOffset > 0)) ? "RSUM \u25BA" : "PLAY \u25BA"
+                    text: (detail && detail.viewOffset > 0) ? "RSUM \u25BA" : "PLAY \u25BA"
                     color: focusRow === 0 ? root.surfaceColor : root.primaryColor
                     font.family: root.globalFont
                     font.pixelSize: root.sh * 0.05 //24

@@ -212,12 +212,10 @@ FocusScope {
         var item = items[itemList.currentIndex]
         if (!item) return
 
-        var extra = mode === "resume" ? { resumeSkip: true } : {}
-
         if (item.type === "series") {
             itemListRoot.navigateTo("ItemSeason.qml", { item: item }, { currentIndex: itemList.currentIndex })
         } else {
-            itemListRoot.navigateTo("Item.qml", Object.assign({ item: item }, extra),
+            itemListRoot.navigateTo("Item.qml", { item: item },
                                    { currentIndex: itemList.currentIndex })
         }
     }

@@ -38,7 +38,8 @@ public:
 
     // Playback
     Q_INVOKABLE void get_playback_url(const QString &itemId, const QString &mediaSourceId,
-                                       int audioStreamIndex, int subtitleStreamIndex);
+                                       int audioStreamIndex, int subtitleStreamIndex,
+                                       bool forceTranscode = false);
     Q_INVOKABLE void load_next_episode(const QString &currentItemId);
     Q_INVOKABLE void update_playback_progress(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks, bool isPaused);
     Q_INVOKABLE void report_playback_stopped(const QString &itemId, const QString &mediaSourceId, qint64 positionTicks, bool failed = false);
@@ -98,6 +99,7 @@ private:
     QString m_quickConnectSecret;
     QString m_quickConnectServerUrl;
     QString m_currentPlaySessionId;
+    QString m_currentPlayMethod; // "DirectPlay" or "Transcode" — for /Sessions reporting
     QString m_deviceId;
 
     static QString normalizeServerUrl(const QString &url);

@@ -170,11 +170,9 @@ FocusScope {
         if (!detail) return
         if (focusRow === 1 && detail.audioStreams && detail.audioStreams.length > 1) {
             audioIdx = (audioIdx - 1 + detail.audioStreams.length) % detail.audioStreams.length
-            appCore.save_setting(moduleRoot.moduleId, "last_audio_idx", audioIdx)
             saveToServer()
         } else if (focusRow === 2 && detail.subtitleStreams && detail.subtitleStreams.length > 0) {
             subtitleIdx = (subtitleIdx - 1 + (detail.subtitleStreams.length + 1)) % (detail.subtitleStreams.length + 1)
-            appCore.save_setting(moduleRoot.moduleId, "last_subtitle_idx", subtitleIdx)
             saveToServer()
         }
     }
@@ -183,11 +181,9 @@ FocusScope {
         if (!detail) return
         if (focusRow === 1 && detail.audioStreams && detail.audioStreams.length > 1) {
             audioIdx = (audioIdx + 1) % detail.audioStreams.length
-            appCore.save_setting(moduleRoot.moduleId, "last_audio_idx", audioIdx)
             saveToServer()
         } else if (focusRow === 2 && detail.subtitleStreams && detail.subtitleStreams.length > 0) {
             subtitleIdx = (subtitleIdx + 1) % (detail.subtitleStreams.length + 1)
-            appCore.save_setting(moduleRoot.moduleId, "last_subtitle_idx", subtitleIdx)
             saveToServer()
         }
     }
@@ -195,10 +191,8 @@ FocusScope {
         if (isLaunching) return
         if (focusRow === 0 && detail) {
             isLaunching = true
-            var startTicks = (detail.viewOffset || 0) * 10000
-            jellyfinBackend.report_playback_start(detail.itemId, detail.mediaSourceId || detail.itemId,
-                                                  detailRoot.selectedAudioId(), detailRoot.selectedSubtitleId(),
-                                                  startTicks)
+            // get_playback_url() reports the playback Start to the server once
+            // PlaybackInfo resolves (so session id + play method are correct).
             jellyfinBackend.get_playback_url(detail.itemId, detail.mediaSourceId || detail.itemId,
                                              detailRoot.selectedStreamIdx("audio"),
                                              detailRoot.selectedStreamIdx("subtitle"))
@@ -228,17 +222,14 @@ FocusScope {
 
     function applyLanguagePreferences(d) {
         if (!d) return
-        var savedAudio = parseInt(appCore.get_setting(moduleRoot.moduleId, "last_audio_idx") || "-1")
-        var savedSub   = parseInt(appCore.get_setting(moduleRoot.moduleId, "last_subtitle_idx") || "-1")
         // [dev] console.log("[Item] applyPrefs serverAudio=" + serverAudioLang + " serverSub=" + serverSubLang +
-        // [dev]             " savedAudio=" + savedAudio + " savedSub=" + savedSub +
         // [dev]             " nAudio=" + (d.audioStreams ? d.audioStreams.length : 0) +
         // [dev]             " nSub=" + (d.subtitleStreams ? d.subtitleStreams.length : 0))
 
-        // Audio: saved index > server prefs > IsDefault > first stream
-        if (d.audioStreams && savedAudio >= 0 && savedAudio < d.audioStreams.length) {
-            detailRoot.audioIdx = savedAudio
-        } else if (d.audioStreams && serverAudioLang) {
+        // Audio: server language preference > IsDefault > first stream.
+        // saveToServer() persists the user's last choice by language, so it
+        // carries forward across items without storing a per-file track index.
+        if (d.audioStreams && serverAudioLang) {
             for (var i = 0; i < d.audioStreams.length; i++) {
                 if (d.audioStreams[i].language === serverAudioLang) { detailRoot.audioIdx = i; break }
             }
@@ -248,10 +239,8 @@ FocusScope {
             }
         }
 
-        // Subtitles: saved index > server prefs > IsDefault > off
-        if (d.subtitleStreams && savedSub >= 1 && savedSub <= d.subtitleStreams.length) {
-            detailRoot.subtitleIdx = savedSub
-        } else if (d.subtitleStreams && serverSubLang) {
+        // Subtitles: server language preference > IsDefault > off.
+        if (d.subtitleStreams && serverSubLang) {
             for (var j = 0; j < d.subtitleStreams.length; j++) {
                 if (d.subtitleStreams[j].language === serverSubLang) { detailRoot.subtitleIdx = j + 1; break }
             }

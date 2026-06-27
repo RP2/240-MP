@@ -98,6 +98,15 @@ FocusScope {
     }
 
     Component.onCompleted: {
-        jellyfinBackend.check_auth()
+        // Show an initial view synchronously so the module always renders a
+        // screen, even if the background token check stalls on an unreachable
+        // server. check_auth() then validates the stored token; onAuthStateChanged
+        // (and onAuthRevoked) re-route to Auth.qml if it was revoked.
+        if (jellyfinBackend.get_auth_state() === "authed") {
+            replaceWith("Libraries.qml", {})
+            jellyfinBackend.check_auth()
+        } else {
+            replaceWith("Auth.qml", {})
+        }
     }
 }

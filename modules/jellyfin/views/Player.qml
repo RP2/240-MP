@@ -29,6 +29,8 @@ FocusScope {
     // Autoplay next episode
     property bool   autoplayNext:       false
     property bool   pendingNextEpisode: false
+    // Set when a direct-play attempt fails and we re-request forcing a transcode.
+    property bool   pendingRetryTranscode: false
     property string carryAudioLang:     ""
     property string carrySubLang:       "__off__"
 
@@ -187,12 +189,8 @@ FocusScope {
         selectedSubtitleId = (subtitleIdx >= 0 && subtitleStreams[subtitleIdx] && subtitleStreams[subtitleIdx].id) ? String(subtitleStreams[subtitleIdx].id) : ""
         captureCarryLanguages()
 
-        // Start a new playback session on the server so progress tracking
-        // and the Continue-Watching shelf work for the auto-advanced episode.
-        jellyfinBackend.report_playback_start(detail.itemId, detail.mediaSourceId || detail.itemId,
-                                               selectedAudioId, selectedSubtitleId)
-
-        // Request the new stream URL
+        // Request the new stream URL — get_playback_url() reports the playback
+        // Start to the server once PlaybackInfo resolves (correct session/method).
         pendingNextEpisode = true
         var audioStreamIdx = selectedAudioId ? parseInt(selectedAudioId) : -1
         var subStreamIdx   = selectedSubtitleId ? parseInt(selectedSubtitleId) : -1
@@ -216,22 +214,48 @@ FocusScope {
         startTimer.restart()
     }
 
-    function doStartPlayback(offsetMs) {
-        // mpv audio/subtitle tracks are 1-based; -1 means auto-select.
-        var audioTrack, subTrack
-        if (isTranscoding) {
-            // HLS manifest already contains the requested streams via
-            // AudioStreamIndex/SubtitleStreamIndex. mpv just needs to
-            // select the included subtitle track or disable them.
-            audioTrack = -1
-            subTrack   = selectedSubtitleId ? 1 : -1
-        } else {
-            // Direct play: map the selected Jellyfin stream index to mpv's
-            // 1-based track numbers within each stream type.
-            audioTrack = audioStreams.length > 0 ? audioIdx + 1 : 0
-            subTrack   = subtitleIdx >= 0 ? subtitleIdx + 1 : -1
+    // Mirrors PlexBackend's Player.buildSubArgs: text subtitles are handed to mpv
+    // as sidecar --sub-file URLs (so direct play never transcodes to show them),
+    // while image subs (no subUrl) are selected from the embedded stream via --sid.
+    // subtitleIdx is -1 for off, otherwise a 0-based index into subtitleStreams.
+    function buildSubArgs() {
+        var allSubUrls = []
+        for (var i = 0; i < subtitleStreams.length; i++) {
+            if (subtitleStreams[i] && subtitleStreams[i].subUrl)
+                allSubUrls.push(subtitleStreams[i].subUrl)
         }
-        mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0, audioTrack, subTrack, [], [], false, -1, 0.0, "")
+        var selectedSub = subtitleIdx >= 0 ? subtitleStreams[subtitleIdx] : null
+        var selectedSubUrl = selectedSub ? (selectedSub.subUrl || "") : ""
+        // Put the selected sidecar first so mpv auto-selects it (subTrack 0).
+        if (selectedSubUrl && allSubUrls.length > 1) {
+            allSubUrls = allSubUrls.filter(function(u) { return u !== selectedSubUrl })
+            allSubUrls.unshift(selectedSubUrl)
+        }
+        var subTrack
+        if (subtitleIdx < 0)
+            subTrack = -1                 // off → forced subs only (matches Plex)
+        else if (selectedSubUrl)
+            subTrack = 0                  // selected sidecar is the first loaded sub-file
+        else
+            subTrack = subtitleIdx + 1    // embedded/image sub → mpv 1-based --sid
+        return { urls: allSubUrls, track: subTrack }
+    }
+
+    function doStartPlayback(offsetMs) {
+        if (isTranscoding) {
+            // HLS manifest bakes in the selected audio, and the chosen subtitle is
+            // burned into the video — so there's no soft sub track for mpv to pick
+            // (subTrack -1 = forced-only, a no-op when nothing soft exists).
+            mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0,
+                                       -1, -1, [], [], false, -1, 0.0, "")
+        } else {
+            // Direct play: file served whole. audioIdx is 0-based → mpv's 1-based
+            // --aid; subtitles come from buildSubArgs (sidecars + --sid).
+            var audioTrack = audioStreams.length > 0 ? audioIdx + 1 : 0
+            var sub = buildSubArgs()
+            mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0,
+                                       audioTrack, sub.track, sub.urls, [], false, -1, 0.0, "")
+        }
     }
 
     function formatTime(ms) {
@@ -254,6 +278,15 @@ FocusScope {
                 pendingNextEpisode = false
                 playerRoot.streamUrl = url
                 doStartPlayback(0)
+                return
+            }
+            if (pendingRetryTranscode) {
+                // Fallback transcode after a direct-play failure. The transcode
+                // covers the full timeline from 0, so seek mpv to where we left off.
+                pendingRetryTranscode = false
+                playerRoot.streamUrl = url
+                playerRoot.isTranscoding = true
+                doStartPlayback(lastKnownPositionMs > 0 ? lastKnownPositionMs : viewOffset)
                 return
             }
         }
@@ -287,6 +320,16 @@ FocusScope {
 
         function onPlaybackEnded(finalPositionMs, finalDurationMs, reason) {
             if (reason === "failed") {
+                if (!isTranscoding) {
+                    // Direct play failed (e.g. a codec mpv couldn't handle, or a
+                    // network drop). Retry transparently with a transcode, resuming
+                    // at the last known position. Mirrors the Plex module.
+                    pendingRetryTranscode = true
+                    var aIdx = selectedAudioId ? parseInt(selectedAudioId) : -1
+                    var sIdx = selectedSubtitleId ? parseInt(selectedSubtitleId) : -1
+                    jellyfinBackend.get_playback_url(itemId, mediaSourceId, aIdx, sIdx, true)
+                    return
+                }
                 // mpv exited with an error. Report as failed so the server
                 // doesn't update the resume position. reportStopped uses the
                 // last known position internally, so this is safe even when

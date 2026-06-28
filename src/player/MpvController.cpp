@@ -239,7 +239,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     connect(m_process, &QProcess::readyRead, this, [this]() {
         const QByteArray out = m_process->readAll();
         if (!out.isEmpty())
-            qDebug("[mpv] %s", out.trimmed().constData());
+            qWarning("[mpv] %s", out.trimmed().constData());
     });
 
     m_headlessMode = detectHeadlessMode();

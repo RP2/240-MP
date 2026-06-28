@@ -101,7 +101,7 @@ FocusScope {
     AppBar {
         iconSource: moduleRoot.moduleIcon
         title: moduleRoot.moduleName
-        subtitle: "Quick Connect"
+        subtitle: "Connect to Server"
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: root.sh * 0.125 //60
@@ -115,7 +115,7 @@ FocusScope {
 
         // Server URL field
         Column {
-            spacing: root.sh * 0.0083333 //4
+            spacing: root.sh * 0.0166667 //8
             width: root.sw * 0.5 //320
             anchors.horizontalCenter: parent.horizontalCenter
 
@@ -129,7 +129,7 @@ FocusScope {
 
             Rectangle {
                 width: parent.width
-                height: root.sh * 0.0583333 //28
+                height: root.sh * 0.075 //36
                 color: root.surfaceColor
                 border.color: focusIndex === 0 ? root.accentColor : root.tertiaryColor
                 border.width: root.sh * 0.003125 //2
@@ -137,10 +137,11 @@ FocusScope {
                 TextInput {
                     id: serverInput
                     anchors.fill: parent
-                    anchors.margins: root.sh * 0.0083333 //4
+                    anchors.margins: root.sh * 0.0166667 //8
                     text: authRoot.serverUrl
                     color: root.primaryColor
                     font.family: root.globalFont
+                    font.capitalization: Font.AllUppercase
                     font.pixelSize: root.sh * 0.0375 //18
                     clip: true
                     focus: authRoot.focusIndex === 0
@@ -196,17 +197,6 @@ FocusScope {
             width: root.sw * 0.5
             wrapMode: Text.WordWrap
             font.pixelSize: root.sh * 0.0333333 //16
-        }
-
-        // Hint text
-        Text {
-            visible: !waiting && serverUrl === ""
-            text: root.hints.change + ":TYPE URL    " + root.hints.select + ":NEXT"
-            color: root.tertiaryColor
-            font.family: root.globalFont
-            font.capitalization: Font.AllUppercase
-            font.pixelSize: root.sh * 0.0291667 //14
-            anchors.horizontalCenter: parent.horizontalCenter
         }
     }
 

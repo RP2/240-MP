@@ -114,103 +114,79 @@ FocusScope {
         anchors.leftMargin: root.sw * 0.125
     }
 
+    // Body
     Column {
         anchors.centerIn: parent
-        spacing: root.sh * 0.0333333  // 16
-        width: root.sw * 0.75  // 480
+        spacing: root.sh * 0.05 //24
 
-        // Code display (when active)
-        Rectangle {
-            visible: !failed && code !== ""
-            width: root.sw * 0.5  // 320
-            height: root.sh * 0.1666667  // 80
-            color: root.surfaceColor
-            border.color: root.accentColor
-            border.width: root.sh * 0.0041667  // 2
-            anchors.horizontalCenter: parent.horizontalCenter
-
-            Text {
-                anchors.centerIn: parent
-                text: qcRoot.code
-                color: root.primaryColor
-                font.family: root.globalFont
-                font.capitalization: Font.AllUppercase
-                font.pixelSize: root.sh * 0.0833333  // 40
-                font.letterSpacing: root.sw * 0.03125  // 20
-            }
-        }
-
-        // Instructions
         Text {
             visible: !failed && code !== ""
-            text: "Open a browser and go to:\n" + serverUrl + "/web/#/quickconnect"
-            color: root.secondaryColor
+            text: qcRoot.code
+            color: root.accentColor
             font.family: root.globalFont
-            font.pixelSize: root.sh * 0.0333333  // 16
+            font.capitalization: Font.AllUppercase
             horizontalAlignment: Text.AlignHCenter
             anchors.horizontalCenter: parent.horizontalCenter
-            width: root.sw * 0.625  // 400
-            wrapMode: Text.WordWrap
-            opacity: 0.8
+            font.pixelSize: root.sh * 0.1166667 //56
+            font.letterSpacing: root.sw * 0.025 // 16
         }
 
         Text {
             visible: !failed && code !== ""
-            text: "Enter the code shown above"
+            text: "Enter the above code at:\n" + serverUrl + "/web/#quickconnect"
             color: root.secondaryColor
             font.family: root.globalFont
-            font.pixelSize: root.sh * 0.0333333  // 16
+            font.capitalization: Font.AllUppercase
+            horizontalAlignment: Text.AlignHCenter
             anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: root.sh * 0.0333333 //16
+            lineHeight: 1.3
         }
 
         // Status
-        Text {
+        Row {
             visible: !failed
-            text: approved ? "APPROVED — SIGNING IN..."
-                          : (code !== "" ? "WAITING FOR APPROVAL..."
-                                         : "CONNECTING...")
-            color: approved ? root.accentColor : root.tertiaryColor
-            font.family: root.globalFont
-            font.capitalization: Font.AllUppercase
-            font.pixelSize: root.sh * 0.0333333  // 16
             anchors.horizontalCenter: parent.horizontalCenter
-        }
-
-        // Error state
-        Rectangle {
-            visible: failed
-            width: root.sw * 0.5  // 320
-            height: root.sh * 0.0583333  // 28
-            color: root.surfaceColor
-            border.color: root.accentColor
-            border.width: root.sh * 0.003125  // 2
-            anchors.horizontalCenter: parent.horizontalCenter
-
             Text {
-                anchors.centerIn: parent
-                text: qcRoot.errorMsg
-                color: root.accentColor
+                text: approved ? "Approved"
+                            : (code !== "" ? "Waiting"
+                                            : "Connecting")
+                color: approved ? root.accentColor : root.tertiaryColor
                 font.family: root.globalFont
                 font.capitalization: Font.AllUppercase
-                font.pixelSize: root.sh * 0.0375  // 18
+                font.pixelSize: root.sh * 0.0333333  // 16
+            }
+            Text {
+                id: dots
+                text: "..."
+                color: root.tertiaryColor
+                font.family: root.globalFont
+                font.pixelSize: root.sh * 0.0333333 //16
+                SequentialAnimation on opacity {
+                    running: waiting
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 0.2; duration: 600 }
+                    NumberAnimation { to: 1.0; duration: 600 }
+                }
             }
         }
 
-        // Cancel / Retry hint
+        // Error state
         Text {
             visible: failed
-            text: root.hints.back + ":RETRY"
-            color: root.tertiaryColor
+            anchors.centerIn: parent
+            text: qcRoot.errorMsg
+            color: root.accentColor
             font.family: root.globalFont
             font.capitalization: Font.AllUppercase
-            font.pixelSize: root.sh * 0.0333333  // 16
-            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: root.sh * 0.05 // 24
         }
+
     }
 
     // Footer
     Text {
-        text: root.hints.back + ":CANCEL"
+        text: failed ? root.hints.back + ":RETRY" : root.hints.back + ":CANCEL"
         color: root.tertiaryColor
         font.family: root.globalFont
         anchors.bottom: parent.bottom

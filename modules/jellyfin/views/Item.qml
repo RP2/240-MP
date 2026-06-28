@@ -5,6 +5,7 @@ FocusScope {
     id: detailRoot
 
     property var navParams: ({})
+    property var navListState: navParams.navListState || ({})
 
     signal navigateTo(string path, var params, var listState)
     signal goBack()

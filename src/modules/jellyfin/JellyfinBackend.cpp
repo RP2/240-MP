@@ -18,6 +18,13 @@
 
 static const QString kModuleId = QStringLiteral("com.240mp.jellyfin");
 
+// Library CollectionTypes the module knows how to browse + play. Anything else
+// (music, books, photos, mixed/empty, etc.) is hidden from both the browse list
+// and the settings multiselect. Mirrors the Plex module's kSupportedLibraryTypes.
+static const QSet<QString> kSupportedCollectionTypes = {
+    QStringLiteral("movies"), QStringLiteral("tvshows"), QStringLiteral("homevideos")
+};
+
 static QString authHeaderValue(const QString &token, const QString &deviceId) {
     QString auth = QStringLiteral("MediaBrowser Client=\"240-MP\", Device=\"%1\", DeviceId=\"%2\", Version=\"%3\"")
                        .arg(QSysInfo::machineHostName(), deviceId, QCoreApplication::applicationVersion());
@@ -610,6 +617,8 @@ void JellyfinBackend::load_libraries() {
         QVariantList libraries;
         for (const QJsonValue &v : items) {
             QJsonObject item = v.toObject();
+            if (!kSupportedCollectionTypes.contains(item["CollectionType"].toString()))
+                continue;
             libraries.append(QVariantMap{
                 {"key",            item["Id"].toString()},
                 {"itemId",         item["Id"].toString()},
@@ -1246,11 +1255,9 @@ void JellyfinBackend::getLibraries() {
         return;
     }
 
-    QJsonObject libCfg = moduleConfig()["libraries"].toObject();
-
     QUrl url(m_serverUrl + "/Users/" + m_userId + "/Views");
     auto *reply = jellyfinGet(url);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, libCfg]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         QVariantList options;
         if (reply->error() != QNetworkReply::NoError) {
@@ -1261,10 +1268,10 @@ void JellyfinBackend::getLibraries() {
         QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
         for (const QJsonValue &v : items) {
             QJsonObject item = v.toObject();
-            QString id = item["Id"].toString();
-            bool selected = libCfg[id].toBool(true);
+            if (!kSupportedCollectionTypes.contains(item["CollectionType"].toString()))
+                continue;
             options.append(QVariantMap{
-                {"id",      id},
+                {"id",      item["Id"].toString()},
                 {"label",   item["Name"].toString().toUpper()},
             });
         }

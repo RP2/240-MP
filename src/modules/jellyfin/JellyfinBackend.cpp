@@ -108,16 +108,14 @@ void JellyfinBackend::clearAuthState() {
     m_userName.clear();
     m_serverName.clear();
     m_currentPlaySessionId.clear();
-    // Keep m_deviceId — it identifies this install across auth sessions
-    // Re-save with just deviceId so loadAuthState can recover it
-    QJsonObject keep;
-    keep["deviceId"] = m_deviceId;
-    QFile f(m_dataRoot + "/jellyfin_auth.json");
-    if (f.open(QIODevice::WriteOnly)) {
-        f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-        f.write(QJsonDocument(keep).toJson());
-        f.close();
-    }
+    // Sign out will wipe the auth file as the device is removed from access
+    // on the server end as well. This will generate a fresh deviceId so any
+    // in-session re-login / QuickConnect creates one that will be synced with the 
+    // new device we give access to on the server and it will persist until either
+    // the user signs out or manually de-auths the device from the server end.
+    // saveAuthState() will recreate the file on the next successful login.
+    m_deviceId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    QFile::remove(m_dataRoot + "/jellyfin_auth.json");
 }
 
 // ---------------------------------------------------------------------------

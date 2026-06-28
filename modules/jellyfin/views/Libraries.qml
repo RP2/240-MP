@@ -107,13 +107,12 @@ FocusScope {
                 return
             }
 
+            // Map the (gated) library type to its item-type filter. homevideos —
+            // and any future allowed type — falls through to "" = all item types.
             var collectionType = lib.collectionType || ""
             var includeTypes = ""
             if (collectionType === "movies") includeTypes = "Movie"
             else if (collectionType === "tvshows") includeTypes = "Series"
-            else if (collectionType === "boxsets") includeTypes = "BoxSet"
-            else if (collectionType === "music") includeTypes = "Audio"
-            // else: empty → show all item types
             browseRoot.navigateTo("Items.qml", {
                 parentId: lib.itemId,
                 title: lib.title,

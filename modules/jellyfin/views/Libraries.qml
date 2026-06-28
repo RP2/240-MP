@@ -19,14 +19,12 @@ FocusScope {
         target: jellyfinBackend
 
         function onLibrariesLoaded(items) {
-            // Insert Continue Watching and Up Next as the first entries
-            var withResume = items.slice()
-            withResume.unshift({ key: "up_next", title: "UP NEXT" })
-            withResume.unshift({ key: "continue_watching", title: "CONTINUE WATCHING" })
-            browseRoot.libraries = withResume
-            if (withResume.length > 0) {
+            // The backend prepends Continue Watching / Up Next (only when they
+            // have content), so render the list as given.
+            browseRoot.libraries = items
+            if (items.length > 0) {
                 var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
-                libraryList.currentIndex = Math.min(restore, withResume.length - 1)
+                libraryList.currentIndex = Math.min(restore, items.length - 1)
                 libraryList.positionViewAtIndex(libraryList.currentIndex, ListView.Contain)
             }
         }
@@ -101,8 +99,8 @@ FocusScope {
             if (lib.key === "up_next") {
                 browseRoot.navigateTo("Items.qml", {
                     mode: "up_next",
-                    title: "UP NEXT",
-                    libraryName: "UP NEXT"
+                    title: "NEXT UP",
+                    libraryName: "NEXT UP"
                 }, { currentIndex: libraryList.currentIndex })
                 return
             }

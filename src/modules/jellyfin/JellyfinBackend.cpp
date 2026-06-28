@@ -626,7 +626,35 @@ void JellyfinBackend::load_libraries() {
                 {"collectionType", item["CollectionType"].toString()},
             });
         }
-        emit librariesLoaded(libraries);
+
+        // Prepend the Continue Watching / Up Next shelves, but only when they
+        // actually have content. Probe each (limit=1) before emitting the list.
+        QUrl resumeUrl(m_serverUrl + "/Users/" + m_userId + "/Items/Resume");
+        { QUrlQuery rq; rq.addQueryItem("limit", "1"); resumeUrl.setQuery(rq); }
+        QUrl nextUrl(m_serverUrl + "/Shows/NextUp");
+        { QUrlQuery nq; nq.addQueryItem("userId", m_userId); nq.addQueryItem("limit", "1"); nextUrl.setQuery(nq); }
+
+        probeHasItems(resumeUrl, [this, libraries, nextUrl](bool hasResume) {
+            probeHasItems(nextUrl, [this, libraries, hasResume](bool hasUpNext) {
+                QVariantList combined = libraries;
+                if (hasUpNext)
+                    combined.prepend(QVariantMap{{"key", "up_next"}, {"title", "NEXT UP"}});
+                if (hasResume)
+                    combined.prepend(QVariantMap{{"key", "continue_watching"}, {"title", "CONTINUE WATCHING"}});
+                emit librariesLoaded(combined);
+            });
+        });
+    });
+}
+
+void JellyfinBackend::probeHasItems(const QUrl &url, std::function<void(bool)> cb) {
+    auto *reply = jellyfinGet(url);
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+        reply->deleteLater();
+        bool has = false;
+        if (reply->error() == QNetworkReply::NoError)
+            has = !QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray().isEmpty();
+        cb(has);
     });
 }
 

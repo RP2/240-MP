@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QJsonObject>
 #include <QUrl>
+#include <functional>
 
 class JellyfinBackend : public QObject {
     Q_OBJECT
@@ -110,6 +111,9 @@ private:
     QNetworkRequest jellyfinRequest(const QUrl &url) const;
     QNetworkReply *jellyfinGet(const QUrl &url);
     QNetworkReply *jellyfinPost(const QUrl &url, const QByteArray &body);
+
+    // Lightweight "does this list have any items?" probe (GET with limit=1).
+    void probeHasItems(const QUrl &url, std::function<void(bool)> cb);
 
     QVariantMap formatItem(const QJsonObject &item) const;
     QString buildImageUrl(const QString &itemId, const QString &imageType, const QString &imageTag, int width, int height) const;

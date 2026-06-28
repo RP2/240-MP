@@ -146,7 +146,7 @@ FocusScope {
     }
 
     function stopPlayback() {
-        reportStopped(mpvController.position, mpvController.duration)
+        reportStopped(mpvController.position, mpvController.duration, lastKnownPositionMs <= 0)
         mpvController.stop()
     }
 

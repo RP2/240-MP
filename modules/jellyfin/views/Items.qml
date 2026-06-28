@@ -14,6 +14,7 @@ FocusScope {
 
     property string parentId: navParams.parentId || ""
     property string listTitle: navParams.title || ""
+    property string libraryName: navParams.libraryName || ""
     property string includeTypes: navParams.includeTypes || "Movie"
     property string mode: navParams.mode || "browse"   // "browse", "resume", or "up_next"
 
@@ -213,9 +214,9 @@ FocusScope {
         if (!item) return
 
         if (item.type === "series") {
-            itemListRoot.navigateTo("ItemSeason.qml", { item: item }, { currentIndex: itemList.currentIndex })
+            itemListRoot.navigateTo("ItemSeason.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
         } else {
-            itemListRoot.navigateTo("Item.qml", { item: item },
+            itemListRoot.navigateTo("Item.qml", { item: item, libraryName: libraryName },
                                    { currentIndex: itemList.currentIndex })
         }
     }

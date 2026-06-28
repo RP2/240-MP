@@ -92,7 +92,8 @@ FocusScope {
             if (lib.key === "continue_watching") {
                 browseRoot.navigateTo("Items.qml", {
                     mode: "resume",
-                    title: "CONTINUE WATCHING"
+                    title: "CONTINUE WATCHING",
+                    libraryName: "CONTINUE WATCHING"
                 }, { currentIndex: libraryList.currentIndex })
                 return
             }
@@ -100,7 +101,8 @@ FocusScope {
             if (lib.key === "up_next") {
                 browseRoot.navigateTo("Items.qml", {
                     mode: "up_next",
-                    title: "UP NEXT"
+                    title: "UP NEXT",
+                    libraryName: "UP NEXT"
                 }, { currentIndex: libraryList.currentIndex })
                 return
             }
@@ -115,6 +117,7 @@ FocusScope {
             browseRoot.navigateTo("Items.qml", {
                 parentId: lib.itemId,
                 title: lib.title,
+                libraryName: lib.title,
                 includeTypes: includeTypes
             }, { currentIndex: libraryList.currentIndex })
         }

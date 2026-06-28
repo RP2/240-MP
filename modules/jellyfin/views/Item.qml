@@ -5,12 +5,12 @@ FocusScope {
     id: detailRoot
 
     property var navParams: ({})
-    property var navListState: navParams.navListState || ({})
 
     signal navigateTo(string path, var params, var listState)
     signal goBack()
 
     property var item: navParams.item || {}
+    property string libraryName: navParams.libraryName || ""
 
     // Loaded detail from backend
     property var detail: null
@@ -255,7 +255,7 @@ FocusScope {
     AppBar {
         iconSource: moduleRoot.moduleIcon
         title: moduleRoot.moduleName
-        subtitle: item.grandparentTitle || item.title || ""
+        subtitle: libraryName
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: root.sh * 0.125 //60
@@ -282,13 +282,6 @@ FocusScope {
         width: root.sw * 0.76875 //492
         height: root.sh * 0.525 //252
         clip: true
-
-        // Subtle background tint — no network, no 404s
-        Rectangle {
-            anchors.fill: parent
-            color: root.accentColor
-            opacity: 0.08
-        }
 
         Row {
             id: itemDetails
@@ -341,7 +334,6 @@ FocusScope {
                         var parts = []
                         if (detail.year) parts.push(String(detail.year))
                         if (detail.duration) parts.push(durationStr(detail.duration))
-                        if (detail.genres && detail.genres.length > 0) parts.push(detail.genres.join(" / "))
                         return parts.join(" - ")
                     }
                     color: root.secondaryColor

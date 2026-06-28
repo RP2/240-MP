@@ -11,6 +11,7 @@ FocusScope {
     signal goBack()
 
     property var item: navParams.item || {}
+    property string libraryName: navParams.libraryName || ""
 
     property var seasons: []
     property bool isLoading: false
@@ -33,6 +34,7 @@ FocusScope {
             seasonRoot.navigateTo("Items.qml", {
                 mode: "episodes",
                 title: "Season " + seasons[seasonList.currentIndex].index,
+                libraryName: seasonRoot.libraryName,
                 items: loadedItems
             }, { currentIndex: seasonList.currentIndex })
         }

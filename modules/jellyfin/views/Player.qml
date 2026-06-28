@@ -69,9 +69,11 @@ FocusScope {
                 event.accepted = true
             }
         } else {
-            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back || event.key === Qt.Key_Backspace) {
-                stopPlayback()
-                goBack()
+            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
+                mpvController.sendKey("ESC")
+                event.accepted = true
+            } else if (event.key === Qt.Key_Backspace) {
+                mpvController.sendKey("BS")
                 event.accepted = true
             } else if (event.key === Qt.Key_Space) {
                 mpvController.sendKey("SPACE")

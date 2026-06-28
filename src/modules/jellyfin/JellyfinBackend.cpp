@@ -631,14 +631,19 @@ void JellyfinBackend::load_items(const QString &parentId, const QString &include
     QUrlQuery q;
     q.addQueryItem("parentId", parentId);
     q.addQueryItem("recursive", "true");
-    q.addQueryItem("fields", "MediaSources,MediaStreams,Overview,Genres,UserData");
+    // Browse rows only need title/year/overview/played state. Skip the heavy
+    // per-item MediaSources/MediaStreams here (now that the list is unbounded) —
+    // Item.qml re-fetches full detail via load_item_detail when an item is opened.
+    q.addQueryItem("fields", "Overview,Genres,UserData");
     if (!includeTypes.isEmpty())
         q.addQueryItem("includeItemTypes", includeTypes);
     if (!sortBy.isEmpty()) {
         q.addQueryItem("sortBy", sortBy);
         q.addQueryItem("sortOrder", "Ascending");
     }
-    q.addQueryItem("limit", "500");
+    // No limit — return the full library so the list is complete A–Z (matches the
+    // Plex module's unbounded /library/sections/{id}/all). Jellyfin returns all
+    // matching items when limit is omitted.
     url.setQuery(q);
 
     auto *reply = jellyfinGet(url);

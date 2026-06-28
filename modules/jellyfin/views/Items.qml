@@ -22,6 +22,43 @@ FocusScope {
     property bool isLoading: false
     property string errorMessage: ""
 
+    // A–Z letter-jump panel — only for the alphabetized full-library list
+    // ("browse"); resume/up_next are not alpha-sorted.
+    property bool showLetterNav: mode === "browse"
+    property bool letterNavActive: false
+    property var letterIndex: []
+
+    // Sort key for a title: strip a leading article, take the first A–Z char,
+    // else group under "#".
+    function sortKey(title) {
+        var t = (title || "").toLowerCase()
+        var articles = ["the ", "a ", "an "]
+        for (var i = 0; i < articles.length; i++) {
+            if (t.indexOf(articles[i]) === 0) { t = t.substring(articles[i].length); break }
+        }
+        var ch = t.charAt(0).toUpperCase()
+        return (ch >= 'A' && ch <= 'Z') ? ch : '#'
+    }
+
+    // Build [{letter, firstIndex}] over the (already alpha-sorted) item list.
+    function buildLetterIndex(itemArr) {
+        var seen = {}
+        var result = []
+        for (var i = 0; i < itemArr.length; i++) {
+            var letter = sortKey(itemArr[i].title || "")
+            if (!seen[letter]) {
+                seen[letter] = true
+                result.push({ letter: letter, firstIndex: i })
+            }
+        }
+        result.sort(function(a, b) {
+            if (a.letter === '#') return -1
+            if (b.letter === '#') return 1
+            return a.letter < b.letter ? -1 : 1
+        })
+        return result
+    }
+
     Connections {
         target: jellyfinBackend
 
@@ -29,6 +66,8 @@ FocusScope {
             if (itemListRoot.mode !== "browse") return
             itemListRoot.isLoading = false
             itemListRoot.items = loadedItems
+            if (itemListRoot.showLetterNav)
+                itemListRoot.letterIndex = itemListRoot.buildLetterIndex(loadedItems)
             if (loadedItems.length > 0) {
                 var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
                 itemList.currentIndex = Math.min(restore, loadedItems.length - 1)
@@ -134,11 +173,12 @@ FocusScope {
     ListView {
         id: itemList
         model: items
+        opacity: letterNavActive ? 0.3 : 1
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: root.sh * 0.25 //120
         anchors.leftMargin: root.sw * 0.115625 //74
-        width: root.sw * 0.76875 //492
+        width: showLetterNav ? root.sw * 0.671875 : root.sw * 0.76875 //430 or 492
         height: root.sh * 0.525 //252
         clip: true
         focus: true
@@ -146,6 +186,18 @@ FocusScope {
         Keys.onUpPressed: if (currentIndex > 0) currentIndex--
         Keys.onDownPressed: if (currentIndex < count - 1) currentIndex++
         Keys.onReturnPressed: itemListRoot.selectItem()
+        Keys.onPressed: function(event) {
+            // Right hands focus to the letter panel, synced to the current letter.
+            if (event.key === Qt.Key_Right && showLetterNav && letterIndex.length > 0) {
+                var curLetter = sortKey((items[itemList.currentIndex] && items[itemList.currentIndex].title) || "")
+                for (var i = 0; i < letterIndex.length; i++) {
+                    if (letterIndex[i].letter === curLetter) { letterList.currentIndex = i; break }
+                }
+                letterNavActive = true
+                letterList.forceActiveFocus()
+                event.accepted = true
+            }
+        }
 
         delegate: Item {
             width: itemList.width
@@ -160,7 +212,7 @@ FocusScope {
                 Rectangle {
                     color: root.accentColor
                     anchors.fill: rowText
-                    visible: itemList.currentIndex === index
+                    visible: itemList.currentIndex === index && !letterNavActive
                 }
 
                 Text {
@@ -169,9 +221,9 @@ FocusScope {
                         var base = (modelData.type === "episode" && modelData.grandparentTitle)
                                    ? (modelData.grandparentTitle + ": " + (modelData.title || ""))
                                    : (modelData.title || "")
-                        return modelData.year ? base + " · " + String(modelData.year) : base
+                        return modelData.year ? base + " (" + String(modelData.year) + ")" : base
                     }
-                    color: itemList.currentIndex === index
+                    color: (itemList.currentIndex === index && !letterNavActive)
                        ? root.surfaceColor : root.primaryColor
                     font.family: root.globalFont
                     font.capitalization: Font.AllUppercase
@@ -202,6 +254,70 @@ FocusScope {
         }
     }
 
+    // A–Z letter navigation panel
+    ListView {
+        id: letterList
+        model: letterIndex
+        visible: showLetterNav && letterIndex.length > 0
+        opacity: letterNavActive ? 1.0 : 0.3
+        anchors.left: itemList.right
+        anchors.leftMargin: root.sw * 0.0375 //24
+        anchors.top: itemList.top
+        width: root.sw * 0.0328125 //21
+        height: itemList.height
+        clip: true
+        focus: false
+
+        Keys.onUpPressed: {
+            if (currentIndex > 0) {
+                currentIndex--
+                itemList.currentIndex = letterIndex[currentIndex].firstIndex
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Beginning)
+            }
+        }
+        Keys.onDownPressed: {
+            if (currentIndex < count - 1) {
+                currentIndex++
+                itemList.currentIndex = letterIndex[currentIndex].firstIndex
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Beginning)
+            }
+        }
+        Keys.onReturnPressed: { letterNavActive = false; itemList.forceActiveFocus() }
+        Keys.onLeftPressed:   { letterNavActive = false; itemList.forceActiveFocus() }
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace || event.key === Qt.Key_Back) {
+                letterNavActive = false
+                itemList.forceActiveFocus()
+                event.accepted = true
+            }
+        }
+
+        delegate: Item {
+            width: letterList.width
+            height: root.sh * 0.04375 //21
+
+            Rectangle {
+                color: root.accentColor
+                anchors.fill: parent
+                visible: letterList.currentIndex === index && letterNavActive
+            }
+
+            Text {
+                text: modelData.letter
+                color: (letterList.currentIndex === index && letterNavActive)
+                       ? root.surfaceColor : root.primaryColor
+                font.family: root.globalFont
+                font.capitalization: Font.AllUppercase
+                font.pixelSize: root.sh * 0.0354167 //17
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                rightPadding: root.sw * 0.009375 //6
+                topPadding: root.sh * 0.0041667 //2
+                bottomPadding: root.sh * 0.00625 //3
+            }
+        }
+    }
+
     function selectItem() {
         var item = items[itemList.currentIndex]
         if (!item) return
@@ -217,7 +333,9 @@ FocusScope {
     // Footer
     Text {
         id: footer
-        text: root.hints.back + ":BACK " + root.hints.navigate + ":NAVIGATE " + root.hints.select + ":SELECT"
+        text: showLetterNav
+              ? root.hints.back + ":BACK " + root.hints.navigate + ":NAVIGATE " + root.hints.browse + ":BROWSE " + root.hints.select + ":SELECT"
+              : root.hints.back + ":BACK " + root.hints.navigate + ":NAVIGATE " + root.hints.select + ":SELECT"
         color: root.tertiaryColor
         font.family: root.globalFont
         anchors.bottom: parent.bottom

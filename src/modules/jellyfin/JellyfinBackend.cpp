@@ -612,14 +612,20 @@ void JellyfinBackend::load_libraries() {
         }
 
         QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
+        // Honour the user's library filter (Settings → Libraries). Empty map ==
+        // never configured, so show everything; otherwise hide explicitly-disabled ones.
+        QJsonObject libEnabled = moduleConfig()["libraries"].toObject();
         QVariantList libraries;
         for (const QJsonValue &v : items) {
             QJsonObject item = v.toObject();
             if (!kSupportedCollectionTypes.contains(item["CollectionType"].toString()))
                 continue;
+            QString libId = item["Id"].toString();
+            if (!libEnabled.isEmpty() && !libEnabled[libId].toBool(true))
+                continue;
             libraries.append(QVariantMap{
-                {"key",            item["Id"].toString()},
-                {"itemId",         item["Id"].toString()},
+                {"key",            libId},
+                {"itemId",         libId},
                 {"title",          item["Name"].toString().toUpper()},
                 {"collectionType", item["CollectionType"].toString()},
             });

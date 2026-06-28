@@ -68,13 +68,6 @@ FocusScope {
             isLoading = true
             errorMessage = ""
             jellyfinBackend.load_continue_watching()
-        } else if (mode === "episodes") {
-            items = navParams.items || []
-            if (items.length > 0) {
-                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
-                itemList.currentIndex = Math.min(restore, items.length - 1)
-                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
-            }
         } else if (mode === "up_next") {
             isLoading = true
             errorMessage = ""
@@ -214,7 +207,7 @@ FocusScope {
         if (!item) return
 
         if (item.type === "series") {
-            itemListRoot.navigateTo("ItemSeason.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
+            itemListRoot.navigateTo("ItemShow.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
         } else {
             itemListRoot.navigateTo("Item.qml", { item: item, libraryName: libraryName },
                                    { currentIndex: itemList.currentIndex })

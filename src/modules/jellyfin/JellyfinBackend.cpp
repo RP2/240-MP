@@ -549,6 +549,7 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
     map["genres"]          = genres;
     map["duration"]        = item["RunTimeTicks"].toDouble() / 10000.0;
     map["viewOffset"]      = userData["PlaybackPositionTicks"].toDouble() / 10000.0;
+    map["played"]          = userData["Played"].toBool();
     map["leafCount"]       = item["ChildCount"].toInt();
     map["index"]           = item["IndexNumber"].toInt();
     map["parentIndex"]     = item["ParentIndexNumber"].toInt();
@@ -831,6 +832,37 @@ void JellyfinBackend::load_up_next() {
         for (const QJsonValue &v : items)
             result.append(formatItem(v.toObject()));
         emit upNextLoaded(result);
+    });
+}
+
+void JellyfinBackend::load_series_next_up(const QString &seriesId) {
+    if (!has_auth()) {
+        emit errorOccurred("NOT AUTHENTICATED");
+        return;
+    }
+
+    // Server computes the resume-or-next-unwatched episode for this series.
+    QUrl url(m_serverUrl + "/Shows/NextUp");
+    QUrlQuery q;
+    q.addQueryItem("userId", m_userId);
+    q.addQueryItem("seriesId", seriesId);
+    q.addQueryItem("limit", "1");
+    q.addQueryItem("fields", "MediaSources,MediaStreams,Overview,Genres,UserData");
+    q.addQueryItem("enableUserData", "true");
+    url.setQuery(q);
+
+    auto *reply = jellyfinGet(url);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred("LOAD SERIES NEXT UP FAILED: " + reply->errorString());
+            return;
+        }
+        QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
+        // Empty when the series has never been started — caller falls back to
+        // playing the first season's first episode.
+        emit seriesNextUpReady(items.isEmpty() ? QVariantMap{}
+                                               : formatItem(items[0].toObject()));
     });
 }
 

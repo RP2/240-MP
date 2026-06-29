@@ -4,7 +4,7 @@
 
 240-MP is a retro VCR style frontend to play content on [Raspberry Pi](https://github.com/anthonycaccese/240-MP/wiki/Hardware-Testing) (preferably hooked up to a CRT TV). 
 
-Playback experiences are handled via modules to enable new integrations without requiring major changes to the overall frontend. There are 4 currently included playback modules; one for [Local Files](https://github.com/anthonycaccese/240-MP/wiki/Module:-Local-Files), one for [Plex](https://github.com/anthonycaccese/240-MP/wiki/Module:-Plex), one for [Jellyfin](modules/jellyfin/README.md) and a module similar to art/wallpaper modes on modern tvs called ([Ambient:Mode](https://github.com/anthonycaccese/240-MP/wiki/Module:-Ambient-Mode))
+Playback experiences are handled via modules to enable new integrations without requiring major changes to the overall frontend. There are 4 currently included playback modules; [Local Files](https://github.com/anthonycaccese/240-MP/wiki/Module:-Local-Files), [Plex](https://github.com/anthonycaccese/240-MP/wiki/Module:-Plex), [Jellyfin](https://github.com/anthonycaccese/240-MP/wiki/Module:-Jellyfin) and a module similar to art/wallpaper modes on modern tvs called [Ambient:Mode](https://github.com/anthonycaccese/240-MP/wiki/Module:-Ambient-Mode).
 
 It's built to work in conjuction with MPV which will be installed (or updated) as a dependency during the [install](#Install) steps outlined below.
 
@@ -48,14 +48,18 @@ Watch on YouTube: https://youtu.be/r-gylGDoELY
 - Show/Season browsing
 - Video quality selection: Direct Playback (Default) or Transcode options
 
-### Jellyfin Module ([README](modules/jellyfin/README.md))
-- Quick Connect sign in (no password typing required — approve on another device)
-- Supports Movie, TV Show, Box Set, and Music libraries
-- Plex-style list browsing for CRT navigation
-- Continue Watching and Resume
-- Show/Season browsing
+### Jellyfin Module ([Wiki](https://github.com/anthonycaccese/240-MP/wiki/Module:-Jellyfin))
+- Designed for CRT navigation (simple, fast, list browsing)
+- Supported library types: `movies, tvshows, homevideos, boxsets`
+- "Quick Connect" authentication
+- Select specific libraries to display
+- Continue Watching, Next Up and Resume Playback
+- Autoplay next episode in a season (optional, off by default)
+- Collections support
 - Select preferred audio/subtitle track before playback and switch tracks during playback
-- HLS transcode at selected quality (480p NTSC / 576p PAL CRT, 720p, 1080p)
+- Full library browsing by letter
+- Show/Season browsing
+- Video quality selection: Direct Playback (Default) or Transcode options
 
 ### Ambient:Mode Module ([Wiki](https://github.com/anthonycaccese/240-MP/wiki/Module:-Ambient-Mode))
 - Supported video file types: `"mp4", "mkv", "avi", "mov", "m4v", "webm", "wmv", "flv", "f4v", "mpg", "mpeg", "vob"`

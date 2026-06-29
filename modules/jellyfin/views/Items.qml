@@ -13,7 +13,6 @@ FocusScope {
     signal goBack()
 
     property string parentId: navParams.parentId || ""
-    property string listTitle: navParams.title || ""
     property string libraryName: navParams.libraryName || ""
     property string includeTypes: navParams.includeTypes || "Movie"
     property string mode: navParams.mode || "browse"   // "browse", "resume", or "up_next"
@@ -75,6 +74,17 @@ FocusScope {
             }
         }
 
+        function onBoxsetChildrenLoaded(loadedItems) {
+            if (itemListRoot.mode !== "boxset") return
+            itemListRoot.isLoading = false
+            itemListRoot.items = loadedItems
+            if (loadedItems.length > 0) {
+                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
+                itemList.currentIndex = Math.min(restore, loadedItems.length - 1)
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
+            }
+        }
+
         function onContinueWatchingLoaded(loadedItems) {
             if (itemListRoot.mode !== "resume") return
             itemListRoot.isLoading = false
@@ -103,7 +113,21 @@ FocusScope {
     }
 
     Component.onCompleted: {
-        if (mode === "resume") {
+        if (mode === "static") {
+            // Pre-filtered list handed over by Boxset.qml — no fetch needed.
+            isLoading = false
+            errorMessage = ""
+            items = navParams.items || []
+            if (items.length > 0) {
+                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
+                itemList.currentIndex = Math.min(restore, items.length - 1)
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
+            }
+        } else if (mode === "boxset") {
+            isLoading = true
+            errorMessage = ""
+            jellyfinBackend.load_boxset_children(parentId)
+        } else if (mode === "resume") {
             isLoading = true
             errorMessage = ""
             jellyfinBackend.load_continue_watching()
@@ -134,7 +158,10 @@ FocusScope {
     AppBar {
         iconSource: moduleRoot.moduleIcon
         title: moduleRoot.moduleName
-        subtitle: listTitle
+        // libraryName is the persistent section label (= title in every mode
+        // except "static", where title is the category name but libraryName is
+        // the box-set name) — keeps the box-set name consistent down the chain.
+        subtitle: libraryName
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: root.sh * 0.125 //60
@@ -324,6 +351,8 @@ FocusScope {
 
         if (item.type === "series") {
             itemListRoot.navigateTo("ItemShow.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
+        } else if (item.type === "boxset") {
+            itemListRoot.navigateTo("Boxset.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
         } else {
             itemListRoot.navigateTo("Item.qml", { item: item, libraryName: libraryName },
                                    { currentIndex: itemList.currentIndex })

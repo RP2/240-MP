@@ -32,6 +32,7 @@ public:
     Q_INVOKABLE void load_items(const QString &parentId, const QString &includeTypes, const QString &sortBy);
     Q_INVOKABLE void load_item_detail(const QString &itemId);
     Q_INVOKABLE void load_children(const QString &itemId);
+    Q_INVOKABLE void load_boxset_children(const QString &parentId);
     Q_INVOKABLE void load_seasons(const QString &seriesId);
     Q_INVOKABLE void load_episodes(const QString &seriesId, const QString &seasonId);
     Q_INVOKABLE void load_continue_watching();
@@ -64,6 +65,7 @@ signals:
     void itemsLoaded(const QVariant &items);
     void itemLoaded(const QVariant &detail);
     void childrenLoaded(const QVariant &children);
+    void boxsetChildrenLoaded(const QVariant &children);
     void seasonsLoaded(const QVariant &seasons);
     void episodesLoaded(const QVariant &episodes);
     void continueWatchingLoaded(const QVariant &items);

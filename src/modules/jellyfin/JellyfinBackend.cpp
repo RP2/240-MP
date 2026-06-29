@@ -22,7 +22,8 @@ static const QString kModuleId = QStringLiteral("com.240mp.jellyfin");
 // (music, books, photos, mixed/empty, etc.) is hidden from both the browse list
 // and the settings multiselect. Mirrors the Plex module's kSupportedLibraryTypes.
 static const QSet<QString> kSupportedCollectionTypes = {
-    QStringLiteral("movies"), QStringLiteral("tvshows"), QStringLiteral("homevideos")
+    QStringLiteral("movies"), QStringLiteral("tvshows"), QStringLiteral("homevideos"),
+    QStringLiteral("boxsets")
 };
 
 static QString authHeaderValue(const QString &token, const QString &deviceId) {
@@ -757,6 +758,43 @@ void JellyfinBackend::load_children(const QString &itemId) {
         for (const QJsonValue &v : items)
             result.append(formatItem(v.toObject()));
         emit childrenLoaded(result);
+    });
+}
+
+void JellyfinBackend::load_boxset_children(const QString &parentId) {
+    if (!has_auth()) {
+        emit errorOccurred("NOT AUTHENTICATED");
+        return;
+    }
+
+    // Direct members only (recursive=false) and no item-type filter — a box set
+    // can hold movies, series, episodes, and nested box sets, and we want them
+    // all. Used both for the library-level box-set list (parentId = library) and
+    // for an individual box set's contents (parentId = box-set id). recursive=false
+    // keeps nested box sets out of the parent listing so nesting only surfaces by
+    // drilling into a box set.
+    QUrl url(m_serverUrl + "/Users/" + m_userId + "/Items");
+    QUrlQuery q;
+    q.addQueryItem("parentId", parentId);
+    q.addQueryItem("recursive", "false");
+    q.addQueryItem("fields", "Overview,Genres,UserData,ChildCount");
+    q.addQueryItem("sortBy", "SortName");
+    q.addQueryItem("sortOrder", "Ascending");
+    url.setQuery(q);
+
+    auto *reply = jellyfinGet(url);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred("LOAD BOXSET FAILED: " + reply->errorString());
+            return;
+        }
+
+        QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
+        QVariantList result;
+        for (const QJsonValue &v : items)
+            result.append(formatItem(v.toObject()));
+        emit boxsetChildrenLoaded(result);
     });
 }
 

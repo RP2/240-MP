@@ -105,9 +105,21 @@ FocusScope {
                 return
             }
 
+            // Box-set libraries list their box sets (direct children); Items.qml
+            // "boxset" mode fetches them and routes each box set into Boxset.qml.
+            var collectionType = lib.collectionType || ""
+            if (collectionType === "boxsets") {
+                browseRoot.navigateTo("Items.qml", {
+                    parentId: lib.itemId,
+                    title: lib.title,
+                    libraryName: lib.title,
+                    mode: "boxset"
+                }, { currentIndex: libraryList.currentIndex })
+                return
+            }
+
             // Map the (gated) library type to its item-type filter. homevideos —
             // and any future allowed type — falls through to "" = all item types.
-            var collectionType = lib.collectionType || ""
             var includeTypes = ""
             if (collectionType === "movies") includeTypes = "Movie"
             else if (collectionType === "tvshows") includeTypes = "Series"

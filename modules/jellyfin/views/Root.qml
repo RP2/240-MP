@@ -33,6 +33,17 @@ FocusScope {
         internalLoader.setSource(resolved, { "navParams": params || {} })
     }
 
+    // Swap the current view in place without touching navStack — used when a
+    // view (e.g. Boxset.qml with a single content type) hands off to another
+    // without inserting itself into the back history. The existing stack entry
+    // still points at whatever opened this view, so BACK skips the swapped-out
+    // view entirely. (replaceWith, by contrast, wipes the whole stack.)
+    function replaceCurrent(viewPath, params) {
+        var resolved = Qt.resolvedUrl(viewPath)
+        currentParams = params || {}
+        internalLoader.setSource(resolved, { "navParams": params || {} })
+    }
+
     // Repoint the BACK target after autoplay advances in place. The top of the
     // stack is the detail view the player was launched from; swap its item so
     // exiting the player returns to the now-playing episode's detail screen.
@@ -69,6 +80,7 @@ FocusScope {
             ignoreUnknownSignals: true
             function onNavigateTo(path, params, listState) { moduleRoot.navigateTo(path, params, listState) }
             function onReplaceWith(path, params) { moduleRoot.replaceWith(path, params) }
+            function onReplaceCurrent(path, params) { moduleRoot.replaceCurrent(path, params) }
             function onGoBack() { moduleRoot.navigateBack() }
             function onUpdateBackItem(item) { moduleRoot.updateBackItem(item) }
         }

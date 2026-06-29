@@ -48,7 +48,8 @@ public:
                                   const QString &plexToken = {},
                                   bool muteAudio = false,
                                   const QString &oscMode = {},
-                                  bool shuffle = false);
+                                  bool shuffle = false,
+                                  const QStringList &subTitles = {});
     Q_INVOKABLE void stop();
     Q_INVOKABLE void seekTo(int positionMs);
     Q_INVOKABLE void sendKey(const QString &key);
@@ -113,6 +114,7 @@ private:
     QString       m_socketPath;
     QString       m_inputConfPath;
     QString       m_logFilePath;
+    QString       m_subInfoPath;       // JSON map: external sub URL -> friendly name (for the OSC)
     QString       m_lastEndFileReason;  // mpv end-file "reason" for the current session
     int           m_position     = 0;
     int           m_duration     = 0;

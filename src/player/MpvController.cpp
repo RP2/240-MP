@@ -50,6 +50,7 @@ MpvController::MpvController(const QString &appRoot, AppCore *appCore, QObject *
     , m_socketPath(QDir::tempPath() + "/240mp-mpv.sock")
     , m_inputConfPath(QDir::tempPath() + "/240mp-input.conf")
     , m_logFilePath(QDir::tempPath() + "/240mp-mpv.log")
+    , m_subInfoPath(QDir::tempPath() + "/240mp-mpv-subinfo.json")
 {
     m_videoProfile = detectVideoProfile();
     qInfo("[MpvController] video profile: %s",
@@ -108,7 +109,8 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
                                  const QStringList &subLangs, bool loop,
                                  int playlistStart, float transcodeOffsetSec,
                                  const QString &plexToken, bool muteAudio,
-                                 const QString &oscMode, bool shuffle) {
+                                 const QString &oscMode, bool shuffle,
+                                 const QStringList &subTitles) {
     if (m_process) {
         m_process->disconnect();
         if (m_process->state() != QProcess::NotRunning) {
@@ -209,8 +211,31 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     if (!subLangs.isEmpty())
         args << QString("--slang=%1").arg(subLangs.join(QStringLiteral(",")));
 
+    QStringList scriptOpts;
     if (transcodeOffsetSec > 0.5f)
-        args << QString("--script-opts=transcode-offset=%1").arg(double(transcodeOffsetSec), 0, 'f', 3);
+        scriptOpts << QString("transcode-offset=%1").arg(double(transcodeOffsetSec), 0, 'f', 3);
+
+    // Hand the OSC a map of external sub-file URL -> friendly track name so it can show
+    // the real subtitle name. mpv otherwise titles an external sub from its URL basename,
+    // which for Jellyfin sidecars is an opaque "Stream.srt?api_key=...". Purely cosmetic —
+    // it does not affect which sub mpv loads or selects.
+    QFile::remove(m_subInfoPath);
+    if (!subTitles.isEmpty() && subTitles.size() == subFiles.size()) {
+        QJsonObject info;
+        for (int i = 0; i < subFiles.size(); ++i) {
+            if (!subTitles[i].isEmpty())
+                info.insert(subFiles[i], subTitles[i]);
+        }
+        QFile sf(m_subInfoPath);
+        if (!info.isEmpty() && sf.open(QFile::WriteOnly | QFile::Truncate)) {
+            sf.write(QJsonDocument(info).toJson(QJsonDocument::Compact));
+            sf.close();
+            // Path is comma- and space-free, so it is safe in the script-opts list.
+            scriptOpts << QString("subinfo-file=%1").arg(m_subInfoPath);
+        }
+    }
+    if (!scriptOpts.isEmpty())
+        args << QString("--script-opts=%1").arg(scriptOpts.join(QStringLiteral(",")));
 
     if (loop)
         args << QStringLiteral("--loop-playlist=inf");

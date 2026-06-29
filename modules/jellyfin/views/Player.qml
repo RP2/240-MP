@@ -216,18 +216,25 @@ FocusScope {
     // as sidecar --sub-file URLs (so direct play never transcodes to show them),
     // while image subs (no subUrl) are selected from the embedded stream via --sid.
     // subtitleIdx is -1 for off, otherwise a 0-based index into subtitleStreams.
+    // Friendly track name for a sidecar — mpv would otherwise title it from the
+    // opaque sidecar URL. Passed to the OSC alongside the URL (see loadAndPlay).
+    function subLabel(s) {
+        return (s.displayTitle || s.title || s.language || s.codec || "")
+    }
+
     function buildSubArgs() {
-        var allSubUrls = []
+        var pairs = []
         for (var i = 0; i < subtitleStreams.length; i++) {
-            if (subtitleStreams[i] && subtitleStreams[i].subUrl)
-                allSubUrls.push(subtitleStreams[i].subUrl)
+            var s = subtitleStreams[i]
+            if (s && s.subUrl)
+                pairs.push({ url: s.subUrl, title: subLabel(s) })
         }
         var selectedSub = subtitleIdx >= 0 ? subtitleStreams[subtitleIdx] : null
         var selectedSubUrl = selectedSub ? (selectedSub.subUrl || "") : ""
         // Put the selected sidecar first so mpv auto-selects it (subTrack 0).
-        if (selectedSubUrl && allSubUrls.length > 1) {
-            allSubUrls = allSubUrls.filter(function(u) { return u !== selectedSubUrl })
-            allSubUrls.unshift(selectedSubUrl)
+        if (selectedSubUrl && pairs.length > 1) {
+            pairs = pairs.filter(function(p) { return p.url !== selectedSubUrl })
+            pairs.unshift({ url: selectedSubUrl, title: subLabel(selectedSub) })
         }
         var subTrack
         if (subtitleIdx < 0)
@@ -236,7 +243,11 @@ FocusScope {
             subTrack = 0                  // selected sidecar is the first loaded sub-file
         else
             subTrack = subtitleIdx + 1    // embedded/image sub → mpv 1-based --sid
-        return { urls: allSubUrls, track: subTrack }
+        return {
+            urls:   pairs.map(function(p) { return p.url }),
+            titles: pairs.map(function(p) { return p.title }),
+            track:  subTrack
+        }
     }
 
     function doStartPlayback(offsetMs) {
@@ -252,7 +263,8 @@ FocusScope {
             var audioTrack = audioStreams.length > 0 ? audioIdx + 1 : 0
             var sub = buildSubArgs()
             mpvController.loadAndPlay(streamUrl, offsetMs / 1000.0,
-                                       audioTrack, sub.track, sub.urls, [], false, -1, 0.0, "")
+                                       audioTrack, sub.track, sub.urls, [], false, -1, 0.0, "",
+                                       false, "", false, sub.titles)
         }
     }
 

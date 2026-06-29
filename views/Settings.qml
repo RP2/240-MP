@@ -68,12 +68,20 @@ FocusScope {
         var moduleVals = ["None"] // stored values (module ids)
         var startupId = appSettings["startup_module"] || "None"
         var startupValue = "None"
+        var foundMatch = false
         for (var mi = 0; mi < installedModules.length; mi++) {
             if (!installedModules[mi].enabled) continue
             moduleOpts.push(installedModules[mi].name)
             moduleVals.push(installedModules[mi].id)
-            if (installedModules[mi].id === startupId) startupValue = installedModules[mi].name
+            if (installedModules[mi].id === startupId) {
+                startupValue = installedModules[mi].name
+                foundMatch = true
+            }
         }
+        // If the stored module id is no longer enabled, reset so the config
+        // stays in sync with what the picker shows.
+        if (startupId !== "None" && !foundMatch)
+            appCore.save_setting("", "startup_module", "None")
         items.push({
             type: "list_single",
             key: "startup_module",

@@ -58,7 +58,6 @@ public:
     Q_INVOKABLE void getVideoQualities();
     Q_INVOKABLE void get_resume_playback_options();
     Q_INVOKABLE void load_server_preferences();
-    Q_INVOKABLE void save_to_server(const QString &audioLang, const QString &subLang);
 
 signals:
     void authStateChanged();
@@ -86,7 +85,7 @@ signals:
     void quickConnectFailed(const QString &message);
 
     // Emitted when server-side language preferences are loaded
-    void serverLanguagePreferencesReady(const QString &audioLanguage, const QString &subtitleLanguage);
+    void serverLanguagePreferencesReady(const QString &audioLanguage, const QString &subtitleLanguage, const QString &subtitleMode);
 
     // Emitted with the next episode's full detail (empty map if none)
     void nextEpisodeReady(const QVariantMap &detail);

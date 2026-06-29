@@ -518,6 +518,7 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
             ss["language"]    = s["Language"].toString();
             ss["codec"]       = codec;
             ss["selected"]    = s["IsDefault"].toBool();
+            ss["forced"]      = s["IsForced"].toBool();
             ss["displayTitle"]= s["DisplayTitle"].toString();
             ss["title"]       = s["Title"].toString();
             // Image subs (PGS/VOBSUB) have no text sidecar — mpv renders them
@@ -1432,33 +1433,9 @@ void JellyfinBackend::onSettingChanged(const QString &moduleId, const QString &k
     }
 }
 
-void JellyfinBackend::save_to_server(const QString &audioLang, const QString &subLang) {
-    if (!has_auth()) return;
-    // [dev] qDebug("[JellyfinBackend] save_to_server audio=%s sub=%s",
-    // [dev]        qPrintable(audioLang), qPrintable(subLang));
-
-    // Fetch current config, update only our fields, POST full config back.
-    QUrl getUrl(m_serverUrl + "/Users/" + m_userId);
-    auto *getReply = jellyfinGet(getUrl);
-    connect(getReply, &QNetworkReply::finished, this, [this, getReply, audioLang, subLang]() {
-        getReply->deleteLater();
-        if (getReply->error() != QNetworkReply::NoError) return;
-        QJsonObject user = QJsonDocument::fromJson(getReply->readAll()).object();
-        QJsonObject config = user["Configuration"].toObject();
-        if (!audioLang.isEmpty())
-            config["AudioLanguagePreference"] = audioLang;
-        if (!subLang.isEmpty())
-            config["SubtitleLanguagePreference"] = subLang;
-
-        QUrl postUrl(m_serverUrl + "/Users/" + m_userId + "/Configuration");
-        auto *postReply = jellyfinPost(postUrl, QJsonDocument(config).toJson(QJsonDocument::Compact));
-        connect(postReply, &QNetworkReply::finished, postReply, &QNetworkReply::deleteLater);
-    });
-}
-
 void JellyfinBackend::load_server_preferences() {
     if (!has_auth()) {
-        emit serverLanguagePreferencesReady(QString(), QString());
+        emit serverLanguagePreferencesReady(QString(), QString(), QString());
         return;
     }
 
@@ -1467,15 +1444,18 @@ void JellyfinBackend::load_server_preferences() {
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            emit serverLanguagePreferencesReady(QString(), QString());
+            emit serverLanguagePreferencesReady(QString(), QString(), QString());
             return;
         }
         QJsonObject userData = QJsonDocument::fromJson(reply->readAll()).object();
         QJsonObject config = userData["Configuration"].toObject();
         QString audioLang = config["AudioLanguagePreference"].toString();
         QString subLang   = config["SubtitleLanguagePreference"].toString();
-        // [dev] qDebug("[JellyfinBackend] Server prefs: audio=%s sub=%s",
-        // [dev]        qPrintable(audioLang), qPrintable(subLang));
-        emit serverLanguagePreferencesReady(audioLang, subLang);
+        // SubtitleMode drives the preselect rule (Default/Smart/Always/OnlyForced/None);
+        // Jellyfin's default when the field is absent is "Default".
+        QString subMode   = config["SubtitleMode"].toString();
+        // [dev] qDebug("[JellyfinBackend] Server prefs: audio=%s sub=%s mode=%s",
+        // [dev]        qPrintable(audioLang), qPrintable(subLang), qPrintable(subMode));
+        emit serverLanguagePreferencesReady(audioLang, subLang, subMode);
     });
 }

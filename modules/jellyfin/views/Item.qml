@@ -71,6 +71,7 @@ FocusScope {
     // Server-side language preferences — fetched on first load as fallback
     property string serverAudioLang: ""
     property string serverSubLang: ""
+    property string serverSubMode: ""   // Default | Smart | Always | OnlyForced | None
     property bool serverPrefsLoaded: false
 
     Connections {
@@ -90,9 +91,10 @@ FocusScope {
             }
         }
 
-        function onServerLanguagePreferencesReady(audioLang, subLang) {
+        function onServerLanguagePreferencesReady(audioLang, subLang, subMode) {
             serverAudioLang = audioLang
             serverSubLang   = subLang
+            serverSubMode   = subMode
             // Re-apply preferences now that we have server data
             if (detailRoot.detail && !hasRestoredState) {
                 detailRoot.applyLanguagePreferences(detailRoot.detail)
@@ -138,17 +140,6 @@ FocusScope {
 
     focus: true
 
-    function saveToServer() {
-        if (!detail) return
-        var audioLang = ""
-        var subLang = ""
-        if (detail.audioStreams && audioIdx >= 0 && audioIdx < detail.audioStreams.length)
-            audioLang = detail.audioStreams[audioIdx].language || ""
-        if (detail.subtitleStreams && subtitleIdx >= 1 && subtitleIdx <= detail.subtitleStreams.length)
-            subLang = detail.subtitleStreams[subtitleIdx - 1].language || ""
-        jellyfinBackend.save_to_server(audioLang, subLang)
-    }
-
     Keys.onUpPressed: {
         if (isLaunching) return
         if (focusRow > 0) focusRow--
@@ -167,10 +158,8 @@ FocusScope {
         if (!detail) return
         if (focusRow === 1 && detail.audioStreams && detail.audioStreams.length > 1) {
             audioIdx = (audioIdx - 1 + detail.audioStreams.length) % detail.audioStreams.length
-            saveToServer()
         } else if (focusRow === 2 && detail.subtitleStreams && detail.subtitleStreams.length > 0) {
             subtitleIdx = (subtitleIdx - 1 + (detail.subtitleStreams.length + 1)) % (detail.subtitleStreams.length + 1)
-            saveToServer()
         }
     }
     Keys.onRightPressed: {
@@ -178,10 +167,8 @@ FocusScope {
         if (!detail) return
         if (focusRow === 1 && detail.audioStreams && detail.audioStreams.length > 1) {
             audioIdx = (audioIdx + 1) % detail.audioStreams.length
-            saveToServer()
         } else if (focusRow === 2 && detail.subtitleStreams && detail.subtitleStreams.length > 0) {
             subtitleIdx = (subtitleIdx + 1) % (detail.subtitleStreams.length + 1)
-            saveToServer()
         }
     }
     Keys.onReturnPressed: {
@@ -214,38 +201,74 @@ FocusScope {
     }
 
     // ------------------------------------------------------------------
-    // Language preferences — persisted globally across items
+    // Language preferences
     // ------------------------------------------------------------------
+
+    // Returns the 1-based subtitleIdx (0 = off) for the first stream matching pred.
+    function firstSub(subs, pred) {
+        for (var i = 0; i < subs.length; i++) {
+            if (pred(subs[i])) return i + 1
+        }
+        return 0
+    }
+
+    // Mirrors Jellyfin's MediaStreamSelector.GetDefaultSubtitleStreamIndex so the
+    // preselected track matches what a native client would pick for the user's
+    // server-side SubtitleMode. Returns a 1-based subtitleIdx (0 = off).
+    function pickSubtitle(subs, prefLang, mode, audioLang) {
+        if (!subs || subs.length === 0) return 0
+        if (mode === "None") return 0
+
+        var idx = 0
+        if (mode === "Smart") {
+            // Embedded forced/default first; otherwise load preferred-language subs
+            // only when the spoken audio differs from the preferred language.
+            idx = firstSub(subs, function(s) { return s.forced || s.selected })
+            if (idx === 0 && prefLang && audioLang !== prefLang)
+                idx = firstSub(subs, function(s) { return !s.forced && s.language === prefLang })
+        } else if (mode === "Always") {
+            idx = firstSub(subs, function(s) { return !s.forced && s.language === prefLang })
+        } else if (mode === "OnlyForced") {
+            idx = firstSub(subs, function(s) { return s.forced })
+        } else {
+            // "Default" (and any empty/unknown value): embedded forced/default only.
+            idx = firstSub(subs, function(s) { return s.forced || s.selected })
+        }
+
+        // Final fallback (all modes except None): forced subs matching the audio language.
+        if (idx === 0)
+            idx = firstSub(subs, function(s) { return s.forced && s.language === audioLang })
+        return idx
+    }
 
     function applyLanguagePreferences(d) {
         if (!d) return
         // [dev] console.log("[Item] applyPrefs serverAudio=" + serverAudioLang + " serverSub=" + serverSubLang +
+        // [dev]             " mode=" + serverSubMode +
         // [dev]             " nAudio=" + (d.audioStreams ? d.audioStreams.length : 0) +
         // [dev]             " nSub=" + (d.subtitleStreams ? d.subtitleStreams.length : 0))
 
         // Audio: server language preference > IsDefault > first stream.
-        // saveToServer() persists the user's last choice by language, so it
-        // carries forward across items without storing a per-file track index.
-        if (d.audioStreams && serverAudioLang) {
-            for (var i = 0; i < d.audioStreams.length; i++) {
-                if (d.audioStreams[i].language === serverAudioLang) { detailRoot.audioIdx = i; break }
+        var audioLang = ""
+        if (d.audioStreams && d.audioStreams.length > 0) {
+            var ai = -1
+            if (serverAudioLang) {
+                for (var i = 0; i < d.audioStreams.length; i++) {
+                    if (d.audioStreams[i].language === serverAudioLang) { ai = i; break }
+                }
             }
-        } else if (d.audioStreams) {
-            for (var i = 0; i < d.audioStreams.length; i++) {
-                if (d.audioStreams[i].selected) { detailRoot.audioIdx = i; break }
+            if (ai < 0) {
+                for (var k = 0; k < d.audioStreams.length; k++) {
+                    if (d.audioStreams[k].selected) { ai = k; break }
+                }
             }
+            if (ai < 0) ai = 0
+            detailRoot.audioIdx = ai
+            audioLang = d.audioStreams[ai].language || ""
         }
 
-        // Subtitles: server language preference > IsDefault > off.
-        if (d.subtitleStreams && serverSubLang) {
-            for (var j = 0; j < d.subtitleStreams.length; j++) {
-                if (d.subtitleStreams[j].language === serverSubLang) { detailRoot.subtitleIdx = j + 1; break }
-            }
-        } else if (d.subtitleStreams) {
-            for (var j = 0; j < d.subtitleStreams.length; j++) {
-                if (d.subtitleStreams[j].selected) { detailRoot.subtitleIdx = j + 1; break }
-            }
-        }
+        // Subtitles: follow the server's SubtitleMode, keyed off the chosen audio language.
+        detailRoot.subtitleIdx = pickSubtitle(d.subtitleStreams, serverSubLang, serverSubMode, audioLang)
     }
 
     // ---

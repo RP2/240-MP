@@ -118,8 +118,19 @@ FocusScope {
                 return
             }
 
-            // Map the (gated) library type to its item-type filter. homevideos —
-            // and any future allowed type — falls through to "" = all item types.
+            // homevideos libraries are a tree of folders + videos, browsed one
+            // level at a time via Items.qml "folder" mode.
+            if (collectionType === "homevideos") {
+                browseRoot.navigateTo("Items.qml", {
+                    parentId: lib.itemId,
+                    title: lib.title,
+                    libraryName: lib.title,
+                    mode: "folder"
+                }, { currentIndex: libraryList.currentIndex })
+                return
+            }
+
+            // Map the (gated) library type to its item-type filter.
             var includeTypes = ""
             if (collectionType === "movies") includeTypes = "Movie"
             else if (collectionType === "tvshows") includeTypes = "Series"

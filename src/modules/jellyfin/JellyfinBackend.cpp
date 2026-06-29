@@ -556,6 +556,7 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
     map["duration"]        = item["RunTimeTicks"].toDouble() / 10000.0;
     map["viewOffset"]      = userData["PlaybackPositionTicks"].toDouble() / 10000.0;
     map["played"]          = userData["Played"].toBool();
+    map["isFolder"]        = item["IsFolder"].toBool();
     map["leafCount"]       = item["ChildCount"].toInt();
     map["index"]           = item["IndexNumber"].toInt();
     map["parentIndex"]     = item["ParentIndexNumber"].toInt();
@@ -795,6 +796,50 @@ void JellyfinBackend::load_boxset_children(const QString &parentId) {
         for (const QJsonValue &v : items)
             result.append(formatItem(v.toObject()));
         emit boxsetChildrenLoaded(result);
+    });
+}
+
+void JellyfinBackend::load_folder_children(const QString &parentId) {
+    if (!has_auth()) {
+        emit errorOccurred("NOT AUTHENTICATED");
+        return;
+    }
+
+    // homevideos browse: a homevideos library is a tree, so we list one level at
+    // a time (recursive=false) with no item-type filter — a folder can hold both
+    // sub-folders and videos. Same query shape as load_boxset_children; ChildCount
+    // is requested so the QML can tell containers from leaves.
+    QUrl url(m_serverUrl + "/Users/" + m_userId + "/Items");
+    QUrlQuery q;
+    q.addQueryItem("parentId", parentId);
+    q.addQueryItem("recursive", "false");
+    q.addQueryItem("fields", "Overview,Genres,UserData,ChildCount");
+    q.addQueryItem("sortBy", "SortName");
+    q.addQueryItem("sortOrder", "Ascending");
+    url.setQuery(q);
+
+    auto *reply = jellyfinGet(url);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred("LOAD FOLDER FAILED: " + reply->errorString());
+            return;
+        }
+
+        QJsonArray items = QJsonDocument::fromJson(reply->readAll()).object()["Items"].toArray();
+        QVariantList result;
+        for (const QJsonValue &v : items) {
+            QVariantMap map = formatItem(v.toObject());
+            // Keep navigable folders and playable videos; drop photos / photo
+            // albums / audio so nothing un-playable can be selected.
+            const QString t = map["type"].toString();
+            if (map["isFolder"].toBool()) {
+                if (t != "photoalbum") result.append(map);
+            } else if (t == "video" || t == "movie" || t == "episode") {
+                result.append(map);
+            }
+        }
+        emit folderChildrenLoaded(result);
     });
 }
 

@@ -23,7 +23,7 @@ FocusScope {
 
     // A–Z letter-jump panel — only for the alphabetized full-library list
     // ("browse"); resume/up_next are not alpha-sorted.
-    property bool showLetterNav: mode === "browse"
+    property bool showLetterNav: mode === "browse" || mode === "folder"
     property bool letterNavActive: false
     property var letterIndex: []
 
@@ -63,6 +63,19 @@ FocusScope {
 
         function onItemsLoaded(loadedItems) {
             if (itemListRoot.mode !== "browse") return
+            itemListRoot.isLoading = false
+            itemListRoot.items = loadedItems
+            if (itemListRoot.showLetterNav)
+                itemListRoot.letterIndex = itemListRoot.buildLetterIndex(loadedItems)
+            if (loadedItems.length > 0) {
+                var restore = (navListState.currentIndex !== undefined) ? navListState.currentIndex : 0
+                itemList.currentIndex = Math.min(restore, loadedItems.length - 1)
+                itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
+            }
+        }
+
+        function onFolderChildrenLoaded(loadedItems) {
+            if (itemListRoot.mode !== "folder") return
             itemListRoot.isLoading = false
             itemListRoot.items = loadedItems
             if (itemListRoot.showLetterNav)
@@ -123,6 +136,10 @@ FocusScope {
                 itemList.currentIndex = Math.min(restore, items.length - 1)
                 itemList.positionViewAtIndex(itemList.currentIndex, ListView.Contain)
             }
+        } else if (mode === "folder") {
+            isLoading = true
+            errorMessage = ""
+            jellyfinBackend.load_folder_children(parentId)
         } else if (mode === "boxset") {
             isLoading = true
             errorMessage = ""
@@ -353,6 +370,14 @@ FocusScope {
             itemListRoot.navigateTo("ItemShow.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
         } else if (item.type === "boxset") {
             itemListRoot.navigateTo("Boxset.qml", { item: item, libraryName: libraryName }, { currentIndex: itemList.currentIndex })
+        } else if (item.isFolder) {
+            // homevideos folder — drill into its direct children, keeping the
+            // persistent library name in the header.
+            itemListRoot.navigateTo("Items.qml", {
+                parentId: item.itemId,
+                libraryName: libraryName,
+                mode: "folder"
+            }, { currentIndex: itemList.currentIndex })
         } else {
             itemListRoot.navigateTo("Item.qml", { item: item, libraryName: libraryName },
                                    { currentIndex: itemList.currentIndex })

@@ -39,10 +39,16 @@ static QString authHeaderValue(const QString &token, const QString &deviceId) {
 // ---------------------------------------------------------------------------
 
 JellyfinBackend::JellyfinBackend(const QString &appRoot, const QString &dataRoot, QObject *parent)
+    : JellyfinBackend(appRoot, dataRoot, new QNetworkAccessManager(this), parent)
+{
+}
+
+JellyfinBackend::JellyfinBackend(const QString &appRoot, const QString &dataRoot,
+                                  QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent)
     , m_appRoot(appRoot)
     , m_dataRoot(dataRoot)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(nam)
 {
     loadAuthState();
     if (m_deviceId.isEmpty()) {

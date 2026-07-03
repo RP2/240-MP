@@ -142,4 +142,11 @@ else()
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/local")
 endif()
 
+# ── Tests (opt-in) ─────────────────────────────────────────────────────────────
+option(BUILD_TESTS "Build unit tests" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 include(CPack)

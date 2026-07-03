@@ -13,6 +13,9 @@ class JellyfinBackend : public QObject {
     Q_OBJECT
 public:
     explicit JellyfinBackend(const QString &appRoot, const QString &dataRoot, QObject *parent = nullptr);
+    // Test-only constructor: inject a QNetworkAccessManager (e.g. a mock)
+    explicit JellyfinBackend(const QString &appRoot, const QString &dataRoot,
+                              QNetworkAccessManager *nam, QObject *parent = nullptr);
 
     // Auth
     Q_INVOKABLE bool has_auth();
@@ -92,6 +95,10 @@ signals:
 
 public slots:
     void onSettingChanged(const QString &moduleId, const QString &key, const QVariant &value);
+
+#ifdef UNIT_TEST
+    friend class JellyfinBackendTest;
+#endif
 
 private:
     QString m_appRoot;

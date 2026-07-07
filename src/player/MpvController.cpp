@@ -116,7 +116,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
                                  const QString &plexToken, bool muteAudio,
                                  const QString &oscMode, bool shuffle,
                                  const QStringList &subTitles, float imageDurationSec,
-                                 bool imageContent, const QStringList &extraArgs) {
+                                 bool imageContent, const QStringList &extraArgs, const QString &jellyfinToken) {
     if (m_process) {
         m_process->disconnect();
         if (m_process->state() != QProcess::NotRunning) {
@@ -161,9 +161,13 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     const bool hasOscScript = QFile::exists(oscScript);
 
     // Stamp the log file so each session is identifiable when tailing over SSH.
+    // Owner-only perms: mpv logs its command line (incl. auth headers) at verbose
+    // level into --log-file, and it truncates rather than recreates the file — so
+    // permissions set here survive the mpv session.
     {
         QFile lf(m_logFilePath);
         if (lf.open(QFile::Append | QFile::Text)) {
+            lf.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
             QString safeUrl = url;
             safeUrl.replace(QRegularExpression("Api[_-]?Key=[^&\\s]+", QRegularExpression::CaseInsensitiveOption), "ApiKey=REDACTED");
             safeUrl.replace(QRegularExpression("X-Plex-Token:[^\\s]+"), "X-Plex-Token=REDACTED");
@@ -249,9 +253,9 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         scriptOpts << QString("screensaver_timeout=%1").arg(screensaverTimeout);
 
     // Hand the OSC a map of external sub-file URL -> friendly track name so it can show
-    // the real subtitle name. mpv otherwise titles an external sub from its URL basename,
-    // which for Jellyfin sidecars is an opaque "Stream.srt?api_key=...". Purely cosmetic —
-    // it does not affect which sub mpv loads or selects.
+    // the real subtitle name. mpv otherwise titles an external sub from its URL basename
+    // (e.g. "Stream.srt" for Jellyfin sidecars). Purely cosmetic — it does not affect
+    // which sub mpv loads or selects.
     QFile::remove(m_subInfoPath);
     if (!subTitles.isEmpty() && subTitles.size() == subFiles.size()) {
         QJsonObject info;
@@ -261,6 +265,7 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
         }
         QFile sf(m_subInfoPath);
         if (!info.isEmpty() && sf.open(QFile::WriteOnly | QFile::Truncate)) {
+            sf.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
             sf.write(QJsonDocument(info).toJson(QJsonDocument::Compact));
             sf.close();
             // Path is comma- and space-free, so it is safe in the script-opts list.
@@ -294,6 +299,9 @@ void MpvController::loadAndPlay(const QString &url, float startSeconds,
     args << extraArgs;
     if (!plexToken.isEmpty()) {
         args << QString("--http-header-fields=X-Plex-Token:%1").arg(plexToken);
+    }
+    if (!jellyfinToken.isEmpty()) {
+        args << QString("--http-header-fields=Authorization:MediaBrowser Token=\"%1\"").arg(jellyfinToken);
     }
 
     // plex.direct certs are Let's Encrypt-signed but ffmpeg's bundled CA bundle

@@ -536,8 +536,7 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
                                   : "vtt";
                 subUrl = m_serverUrl + "/Videos/" + item["Id"].toString() + "/"
                        + mediaSource["Id"].toString() + "/Subtitles/"
-                       + QString::number(idx) + "/Stream." + ext
-                       + "?api_key=" + m_accessToken;
+                       + QString::number(idx) + "/Stream." + ext;
             }
             ss["subUrl"] = subUrl;
             subtitleStreams.append(ss);
@@ -573,29 +572,6 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
     return map;
 }
 
-// ---------------------------------------------------------------------------
-// URL helpers
-// ---------------------------------------------------------------------------
-
-QString JellyfinBackend::buildImageUrl(const QString &itemId, const QString &imageType,
-                                       const QString &imageTag, int width, int height) const {
-    if (m_serverUrl.isEmpty() || m_accessToken.isEmpty())
-        return QString();
-
-    QString url = m_serverUrl + "/Items/" + itemId + "/Images/" + imageType
-                + "?api_key=" + m_accessToken;
-    if (!imageTag.isEmpty())
-        url += "&tag=" + imageTag;
-    if (width > 0)
-        url += "&fillWidth=" + QString::number(width);
-    if (height > 0)
-        url += "&fillHeight=" + QString::number(height);
-    return url;
-}
-
-QString JellyfinBackend::image_url(const QString &itemId, const QString &imageType, int width, int height) {
-    return buildImageUrl(itemId, imageType, QString(), width, height);
-}
 
 // ---------------------------------------------------------------------------
 // Browse
@@ -1141,8 +1117,7 @@ void JellyfinBackend::get_playback_url(const QString &itemId, const QString &med
             const QString srcId = source["Id"].toString(mediaSourceId);
             QString directUrl = m_serverUrl + "/Videos/" + itemId + "/stream"
                               + "?static=true"
-                              + "&mediaSourceId=" + srcId
-                              + "&api_key=" + m_accessToken;
+                              + "&mediaSourceId=" + srcId;
             if (!playSessionId.isEmpty())
                 directUrl += "&PlaySessionId=" + playSessionId;
             m_currentPlaySessionId = playSessionId;
@@ -1164,21 +1139,27 @@ void JellyfinBackend::get_playback_url(const QString &itemId, const QString &med
         m_currentPlaySessionId = playSessionId;
         m_currentPlayMethod    = QStringLiteral("Transcode");
 
-        QString fullUrl = m_serverUrl + transcodeUrl;
+        // Build the full URL, then strip any api_key from the server-generated
+        // TranscodingUrl — the Authorization header (passed via --http-header-fields
+        // to mpv) covers authentication.
+        QUrl parsedUrl(m_serverUrl + transcodeUrl);
+        {
+            QUrlQuery q(parsedUrl);
+            const auto items = q.queryItems();
+            for (const auto &kv : items) {
+                if (kv.first.compare(QLatin1String("api_key"), Qt::CaseInsensitive) == 0 ||
+                    kv.first.compare(QLatin1String("apikey"),  Qt::CaseInsensitive) == 0)
+                    q.removeAllQueryItems(kv.first);
+            }
+            parsedUrl.setQuery(q);
+        }
+        QString fullUrl = parsedUrl.toString();
 
         // Pin the URL's PlaySessionId to the one we report with (they should
         // already match; this guarantees it even if the server differs).
         if (!playSessionId.isEmpty())
             fullUrl.replace(QRegularExpression("PlaySessionId=[^&]+"),
                             "PlaySessionId=" + playSessionId);
-
-        // Append api_key only if not already present
-        if (fullUrl.indexOf("apikey=", 0, Qt::CaseInsensitive) < 0)
-            fullUrl += (fullUrl.contains('?') ? "&" : "?") + QString("api_key=") + m_accessToken;
-
-        // Subtitle delivery (soft HLS for text, burn-in for image) is decided by
-        // the DeviceProfile and already baked into TranscodingUrl — no manual
-        // SubtitleStreamIndex/SubtitleMethod override here.
 
         // Enforce max height from quality setting — the server's TranscodingUrl may
         // include a VideoBitrate cap (from our PlaybackInfo POST) but omit MaxHeight,

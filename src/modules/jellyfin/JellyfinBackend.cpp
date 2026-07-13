@@ -553,6 +553,9 @@ QVariantMap JellyfinBackend::formatItem(const QJsonObject &item) const {
     map["title"]           = item["Name"].toString();
     map["type"]            = item["Type"].toString().toLower();
     map["overview"]        = item["Overview"].toString();
+    QString releaseDate = item["ReleaseDate"].toString();
+    QString premiereDate = item["PremiereDate"].toString();
+    map["releaseDate"]    = releaseDate.isEmpty() ? premiereDate : releaseDate;
     map["year"]            = item["ProductionYear"].toVariant();
     map["genres"]          = genres;
     map["duration"]        = item["RunTimeTicks"].toDouble() / 10000.0;
@@ -757,7 +760,7 @@ void JellyfinBackend::load_boxset_children(const QString &parentId) {
     QUrlQuery q;
     q.addQueryItem("parentId", parentId);
     q.addQueryItem("recursive", "false");
-    q.addQueryItem("fields", "Overview,Genres,UserData,ChildCount");
+    q.addQueryItem("fields", "Overview,Genres,UserData,ChildCount,ReleaseDate,PremiereDate");
     q.addQueryItem("sortBy", "SortName");
     q.addQueryItem("sortOrder", "Ascending");
     url.setQuery(q);

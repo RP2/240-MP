@@ -31,14 +31,34 @@ FocusScope {
         return null
     }
 
+    // Sort a bucket's items by release date, oldest first. Items with a missing
+    // or unparseable date sink to the bottom, keeping their incoming (SortName)
+    // order relative to one another.
+    function sortCollectionItems(itemArr) {
+        if (!itemArr) return []
+        var result = itemArr.slice()
+        result.sort(function(a, b) {
+            var av = a && (a.releaseDate || a.ReleaseDate)
+            var bv = b && (b.releaseDate || b.ReleaseDate)
+            var at = av ? Date.parse(av) : NaN
+            var bt = bv ? Date.parse(bv) : NaN
+            var aBad = isNaN(at), bBad = isNaN(bt)
+            if (aBad && bBad) return 0
+            if (aBad) return 1
+            if (bBad) return -1
+            return at - bt
+        })
+        return result
+    }
+
     Connections {
         target: jellyfinBackend
 
         function onBoxsetChildrenLoaded(children) {
             boxsetRoot.isLoading = false
 
-            // Bucket children by content type, preserving the load order within
-            // each bucket (backend sorts by SortName).
+            // Bucket children by content type. Each bucket is re-sorted by
+            // release date (oldest first) via sortCollectionItems before handoff.
             var buckets = {}
             for (var i = 0; i < children.length; i++) {
                 var c = children[i]
@@ -59,7 +79,7 @@ FocusScope {
             if (cats.length === 1) {
                 boxsetRoot.replaceCurrent("Items.qml", {
                     mode: "static",
-                    items: cats[0].items,
+                    items: boxsetRoot.sortCollectionItems(cats[0].items),
                     title: cats[0].label,
                     libraryName: boxsetRoot.item.title || boxsetRoot.libraryName
                 })
@@ -101,7 +121,7 @@ FocusScope {
         if (!cat) return
         boxsetRoot.navigateTo("Items.qml", {
             mode: "static",
-            items: cat.items,
+            items: boxsetRoot.sortCollectionItems(cat.items),
             title: cat.label,
             libraryName: boxsetRoot.item.title || boxsetRoot.libraryName
         }, { currentIndex: categoryList.currentIndex })
